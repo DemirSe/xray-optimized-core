@@ -9,7 +9,7 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 - Politika: %100 TUN, bypass YOK, WhatsApp dahil her şey tünel içi
 - In: IPv4:443 only (client v4), Out: dual v4/v6 (client v6 out OK)
 - Dest: SADECE whatsapp.net ailesi, fallback YOK (kabul edilen risk: dest bozulursa net gider)
-- Core: resmi XTLS/Xray-core (fork YOK), Hiddify 3 OS'ta
+- Core: FORK DemirSe/xray-optimized-core (parent XTLS/Xray-core, pin stabil v26.3.27). Günlük kural: upstream tag'i takip et, core diff'i最小 tut (gün-1: sadece build+config, mantık değişikliği yok)
 - Log: optimize bitene kadar açık (warning+access), sonra kapatılacak
 - SSH: şifre ile ilk giriş, hemen key'e geçilecek
 
