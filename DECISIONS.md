@@ -31,7 +31,8 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 ## Bilinen riskler / açık işler
 
-- Reboot persistence test edilmedi (sysctl+iptables-persistent+xray geri dönüşü).
+- Reboot persistence: TEST EDİLDİ ✓ (2026-09-05) — sysctl+iptables+xray+GOGC+loglevel hepsi geri geldi,
+  eth0 boot'ta otomatik fq aldı. Sim rig (netns/test prosesleri) kalıcı değil, gerekirse SIM.md ile kurulur.
 - Gerçek-hat testi yapılmadı (sim ≠ ISP). Bekleyen: kullanıcının Windows/Android testi + WhatsApp sesli/görüntülü.
 - Aynı ev-NAT'ından 10 ani handshake → hashlimit geciktirir (retry ile düzelir).
 - Upload tek-akış ~2.2Mbit (çok-akışta 9.4Mbit) — arama için yeterli, dev upload yavaş.
