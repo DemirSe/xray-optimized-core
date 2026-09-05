@@ -1,21 +1,15 @@
 package conf
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/app/proxyman"
-	"github.com/xtls/xray-core/app/router"
-	"github.com/xtls/xray-core/app/stats"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/common/serial"
 	core "github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/transport/internet"
@@ -23,35 +17,12 @@ import (
 
 var (
 	inboundConfigLoader = NewJSONConfigLoader(ConfigCreatorCache{
-		"tunnel":        func() interface{} { return new(DokodemoConfig) },
-		"dokodemo-door": func() interface{} { return new(DokodemoConfig) },
-		"http":          func() interface{} { return new(HTTPServerConfig) },
-		"shadowsocks":   func() interface{} { return new(ShadowsocksServerConfig) },
-		"mixed":         func() interface{} { return new(SocksServerConfig) },
-		"socks":         func() interface{} { return new(SocksServerConfig) },
 		"vless":         func() interface{} { return new(VLessInboundConfig) },
-		"vmess":         func() interface{} { return new(VMessInboundConfig) },
-		"trojan":        func() interface{} { return new(TrojanServerConfig) },
-		"wireguard":     func() interface{} { return &WireGuardConfig{IsClient: false} },
-		"hysteria":      func() interface{} { return new(HysteriaServerConfig) },
-		"tun":           func() interface{} { return new(TunConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = NewJSONConfigLoader(ConfigCreatorCache{
-		"block":       func() interface{} { return new(BlackholeConfig) },
-		"blackhole":   func() interface{} { return new(BlackholeConfig) },
-		"loopback":    func() interface{} { return new(LoopbackConfig) },
 		"direct":      func() interface{} { return new(FreedomConfig) },
 		"freedom":     func() interface{} { return new(FreedomConfig) },
-		"http":        func() interface{} { return new(HTTPClientConfig) },
-		"shadowsocks": func() interface{} { return new(ShadowsocksClientConfig) },
-		"socks":       func() interface{} { return new(SocksClientConfig) },
-		"vless":       func() interface{} { return new(VLessOutboundConfig) },
-		"vmess":       func() interface{} { return new(VMessOutboundConfig) },
-		"trojan":      func() interface{} { return new(TrojanClientConfig) },
-		"hysteria":    func() interface{} { return new(HysteriaClientConfig) },
-		"dns":         func() interface{} { return new(DNSOutboundConfig) },
-		"wireguard":   func() interface{} { return &WireGuardConfig{IsClient: true} },
 	}, "protocol", "settings")
 )
 
@@ -195,9 +166,6 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	if err != nil {
 		return nil, errors.New("failed to load inbound detour config for protocol ", c.Protocol).Base(err)
 	}
-	if dokodemoConfig, ok := rawConfig.(*DokodemoConfig); ok {
-		receiverSettings.ReceiveOriginalDestination = dokodemoConfig.FollowRedirect
-	}
 	ts, err := rawConfig.(Buildable).Build()
 	if err != nil {
 		return nil, errors.New("failed to build inbound handler for protocol ", c.Protocol).Base(err)
@@ -336,31 +304,16 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 	}, nil
 }
 
-type StatsConfig struct{}
-
-// Build implements Buildable.
-func (c *StatsConfig) Build() (*stats.Config, error) {
-	return &stats.Config{}, nil
-}
-
 type Config struct {
 	// Deprecated: Global transport config is no longer used
 	// left for returning error
 	Transport map[string]json.RawMessage `json:"transport"`
 
 	LogConfig        *LogConfig              `json:"log"`
-	RouterConfig     *RouterConfig           `json:"routing"`
-	DNSConfig        *DNSConfig              `json:"dns"`
 	InboundConfigs   []InboundDetourConfig   `json:"inbounds"`
 	OutboundConfigs  []OutboundDetourConfig  `json:"outbounds"`
 	Policy           *PolicyConfig           `json:"policy"`
-	API              *APIConfig              `json:"api"`
-	Metrics          *MetricsConfig          `json:"metrics"`
-	Stats            *StatsConfig            `json:"stats"`
 	Reverse          *ReverseConfig          `json:"reverse"`
-	FakeDNS          *FakeDNSConfig          `json:"fakeDns"`
-	Observatory      *ObservatoryConfig      `json:"observatory"`
-	BurstObservatory *BurstObservatoryConfig `json:"burstObservatory"`
 	Version          *VersionConfig          `json:"version"`
 }
 
@@ -393,42 +346,18 @@ func (c *Config) Override(o *Config, fn string) {
 	if o.LogConfig != nil {
 		c.LogConfig = o.LogConfig
 	}
-	if o.RouterConfig != nil {
-		c.RouterConfig = o.RouterConfig
-	}
-	if o.DNSConfig != nil {
-		c.DNSConfig = o.DNSConfig
-	}
 	if o.Transport != nil {
 		c.Transport = o.Transport
 	}
 	if o.Policy != nil {
 		c.Policy = o.Policy
 	}
-	if o.API != nil {
-		c.API = o.API
-	}
-	if o.Metrics != nil {
-		c.Metrics = o.Metrics
-	}
-	if o.Stats != nil {
-		c.Stats = o.Stats
-	}
 	if o.Reverse != nil {
 		c.Reverse = o.Reverse
 	}
 
-	if o.FakeDNS != nil {
-		c.FakeDNS = o.FakeDNS
-	}
 
-	if o.Observatory != nil {
-		c.Observatory = o.Observatory
-	}
 
-	if o.BurstObservatory != nil {
-		c.BurstObservatory = o.BurstObservatory
-	}
 
 	if o.Version != nil {
 		c.Version = o.Version
@@ -486,27 +415,6 @@ func (c *Config) Build() (*core.Config, error) {
 		},
 	}
 
-	if c.API != nil {
-		apiConf, err := c.API.Build()
-		if err != nil {
-			return nil, errors.New("failed to build API configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(apiConf))
-	}
-	if c.Metrics != nil {
-		metricsConf, err := c.Metrics.Build()
-		if err != nil {
-			return nil, errors.New("failed to build metrics configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(metricsConf))
-	}
-	if c.Stats != nil {
-		statsConf, err := c.Stats.Build()
-		if err != nil {
-			return nil, errors.New("failed to build stats configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(statsConf))
-	}
 
 	var logConfMsg *serial.TypedMessage
 	if c.LogConfig != nil {
@@ -517,22 +425,6 @@ func (c *Config) Build() (*core.Config, error) {
 	// let logger module be the first App to start,
 	// so that other modules could print log during initiating
 	config.App = append([]*serial.TypedMessage{logConfMsg}, config.App...)
-
-	if c.RouterConfig != nil {
-		routerConfig, err := c.RouterConfig.Build()
-		if err != nil {
-			return nil, errors.New("failed to build routing configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(routerConfig))
-	}
-
-	if c.DNSConfig != nil {
-		dnsApp, err := c.DNSConfig.Build()
-		if err != nil {
-			return nil, errors.New("failed to build DNS configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(dnsApp))
-	}
 
 	if c.Policy != nil {
 		pc, err := c.Policy.Build()
@@ -546,30 +438,6 @@ func (c *Config) Build() (*core.Config, error) {
 		r, err := c.Reverse.Build()
 		if err != nil {
 			return nil, errors.New("failed to build reverse configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.FakeDNS != nil {
-		r, err := c.FakeDNS.Build()
-		if err != nil {
-			return nil, errors.New("failed to build fake DNS configuration").Base(err)
-		}
-		config.App = append([]*serial.TypedMessage{serial.ToTypedMessage(r)}, config.App...)
-	}
-
-	if c.Observatory != nil {
-		r, err := c.Observatory.Build()
-		if err != nil {
-			return nil, errors.New("failed to build observatory configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.BurstObservatory != nil {
-		r, err := c.BurstObservatory.Build()
-		if err != nil {
-			return nil, errors.New("failed to build burst observatory configuration").Base(err)
 		}
 		config.App = append(config.App, serial.ToTypedMessage(r))
 	}
@@ -615,187 +483,6 @@ func (c *Config) Build() (*core.Config, error) {
 	}
 
 	return config, nil
-}
-
-func (c *Config) BuildMPHCache(customMatcherFilePath *string) error {
-	var geosite []*router.GeoSite
-	deps := make(map[string][]string)
-	uniqueGeosites := make(map[string]bool)
-	uniqueTags := make(map[string]bool)
-	matcherFilePath := platform.GetAssetLocation("matcher.cache")
-
-	if customMatcherFilePath != nil {
-		matcherFilePath = *customMatcherFilePath
-	}
-
-	processGeosite := func(dStr string) bool {
-		prefix := ""
-		if strings.HasPrefix(dStr, "geosite:") {
-			prefix = "geosite:"
-		} else if strings.HasPrefix(dStr, "ext-domain:") {
-			prefix = "ext-domain:"
-		}
-		if prefix == "" {
-			return false
-		}
-		key := strings.ToLower(dStr)
-		country := strings.ToUpper(dStr[len(prefix):])
-		if !uniqueGeosites[country] {
-			ds, err := loadGeositeWithAttr("geosite.dat", country)
-			if err == nil {
-				uniqueGeosites[country] = true
-				geosite = append(geosite, &router.GeoSite{CountryCode: key, Domain: ds})
-			}
-		}
-		return true
-	}
-
-	processDomains := func(tag string, rawDomains []string) {
-		var manualDomains []*router.Domain
-		var dDeps []string
-		for _, dStr := range rawDomains {
-			if processGeosite(dStr) {
-				dDeps = append(dDeps, strings.ToLower(dStr))
-			} else {
-				ds, err := parseDomainRule(dStr)
-				if err == nil {
-					manualDomains = append(manualDomains, ds...)
-				}
-			}
-		}
-		if len(manualDomains) > 0 {
-			if !uniqueTags[tag] {
-				uniqueTags[tag] = true
-				geosite = append(geosite, &router.GeoSite{CountryCode: tag, Domain: manualDomains})
-			}
-		}
-		if len(dDeps) > 0 {
-			deps[tag] = append(deps[tag], dDeps...)
-		}
-	}
-
-	// proccess rules
-	if c.RouterConfig != nil {
-		for _, rawRule := range c.RouterConfig.RuleList {
-			type SimpleRule struct {
-				RuleTag string      `json:"ruleTag"`
-				Domain  *StringList `json:"domain"`
-				Domains *StringList `json:"domains"`
-			}
-			var sr SimpleRule
-			json.Unmarshal(rawRule, &sr)
-			if sr.RuleTag == "" {
-				continue
-			}
-			var allDomains []string
-			if sr.Domain != nil {
-				allDomains = append(allDomains, *sr.Domain...)
-			}
-			if sr.Domains != nil {
-				allDomains = append(allDomains, *sr.Domains...)
-			}
-			processDomains(sr.RuleTag, allDomains)
-		}
-	}
-
-	// proccess dns servers
-	if c.DNSConfig != nil {
-		for _, ns := range c.DNSConfig.Servers {
-			if ns.Tag == "" {
-				continue
-			}
-			processDomains(ns.Tag, ns.Domains)
-		}
-	}
-
-	var hostIPs map[string][]string
-	if c.DNSConfig != nil && c.DNSConfig.Hosts != nil {
-		hostIPs = make(map[string][]string)
-		var hostDeps []string
-		var hostPatterns []string
-
-		// use raw map to avoid expanding geosites
-		var domains []string
-		for domain := range c.DNSConfig.Hosts.Hosts {
-			domains = append(domains, domain)
-		}
-		sort.Strings(domains)
-
-		manualHostGroups := make(map[string][]*router.Domain)
-		manualHostIPs := make(map[string][]string)
-		manualHostNames := make(map[string]string)
-
-		for _, domain := range domains {
-			ha := c.DNSConfig.Hosts.Hosts[domain]
-			m := getHostMapping(ha)
-
-			var ips []string
-			if m.ProxiedDomain != "" {
-				ips = append(ips, m.ProxiedDomain)
-			} else {
-				for _, ip := range m.Ip {
-					ips = append(ips, net.IPAddress(ip).String())
-				}
-			}
-
-			if processGeosite(domain) {
-				tag := strings.ToLower(domain)
-				hostDeps = append(hostDeps, tag)
-				hostIPs[tag] = ips
-				hostPatterns = append(hostPatterns, domain)
-			} else {
-				// build manual domains by their destination IPs
-				sort.Strings(ips)
-				ipKey := strings.Join(ips, ",")
-				ds, err := parseDomainRule(domain)
-				if err == nil {
-					manualHostGroups[ipKey] = append(manualHostGroups[ipKey], ds...)
-					manualHostIPs[ipKey] = ips
-					if _, ok := manualHostNames[ipKey]; !ok {
-						manualHostNames[ipKey] = domain
-					}
-				}
-			}
-		}
-
-		// create manual host groups
-		var ipKeys []string
-		for k := range manualHostGroups {
-			ipKeys = append(ipKeys, k)
-		}
-		sort.Strings(ipKeys)
-
-		for _, k := range ipKeys {
-			tag := manualHostNames[k]
-			geosite = append(geosite, &router.GeoSite{CountryCode: tag, Domain: manualHostGroups[k]})
-			hostDeps = append(hostDeps, tag)
-			hostIPs[tag] = manualHostIPs[k]
-
-			// record tag _ORDER links the matcher to IP addresses
-			hostPatterns = append(hostPatterns, tag)
-		}
-
-		deps["HOSTS"] = hostDeps
-		hostIPs["_ORDER"] = hostPatterns
-	}
-
-	f, err := os.Create(matcherFilePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var buf bytes.Buffer
-
-	if err := router.SerializeGeoSiteList(geosite, deps, hostIPs, &buf); err != nil {
-		return err
-	}
-
-	if _, err := f.Write(buf.Bytes()); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Convert string to Address.
