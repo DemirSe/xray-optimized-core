@@ -43,6 +43,27 @@ Kural: config şeması ve Reality handshake BİREBİR aynı kalır (client stock
    stock'un ±%10 bandında + `xray tls ping whatsapp.net:443` çalışıyor.
 4. Canlıya alma: yedek + tek-komut rollback (ayrı y/n).
 
+## Dersler (canlı kanıtlı)
+
+- `main/confloader/external` SADECE http değil, DOSYA okuyucuyu da kurar. Atınca binary
+  hiç config okuyamıyor (stdin EOF). Geri eklendi.
+- `all.go` import silmek YETMEZ: `infra/conf` parser'ları her protokol paketini zaten
+  çekiyor (ölçüldü: binary -115KB, vmess hâlâ çalışıyordu). Gerçek budama =
+  klasör + parser silmek (400 dosya, -64k satır).
+- `reality` paketi `tls` transportunu importluyor, `vless/inbound` `app/reverse` istiyor —
+  ikisi de tutuldu (grep doğrulamalı).
+- go.mod budanmadı: silinen paketlere test dosyaları referans veriyor; binary'e etkisi
+  yok (linker ölü kodu atıyor), CI indirmesi biraz şişkin. Bilinçli erteleme.
+
+## Sonuç (2026-09-05, local build)
+
+- 32.4MB → 23.8MB (-%26). CLI: run/version/tls/uuid/x25519 (api/convert/wg gitti).
+- Reality config OK; vmess/socks config RED (unknown config id).
+- Canlı trafik: trimmed-server + stock-client, gerçek whatsapp.net dest, HTTP 200 doğru içerik.
+- CI `trimmed-build` yeşil (build + uuid + config OK/RED + sha256 + artifact).
+- Upstream workflow'lar fork'ta kapatıldı (sadece trimmed-build).
+- SIRADAKİ: rig A/B (:1443, server) + rollout — server'a dokunur, ayrı y/n gerekir.
+
 ## Beklenen kazanç (ölçülmeden iddia yok)
 
 - Binary küçülür + tedarik-zinciri daralır (az bağımlılık = az CVE yüzeyi).
