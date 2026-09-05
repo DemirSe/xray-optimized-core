@@ -40,6 +40,17 @@ Profilller (çift-yön): hafif 20ms/%0.2/500Mbit, std 40ms/%1/200Mbit, sert 100m
   3 client'ın ortak IP'sini boğmuş (698 DROP). Kaldırılıp baştan ölçüldü. Live :443 kuralı
   gerçekte cihaz-başı IP ile çalışır, sorun yok.
 
+## Detay batch (UDP / upload / büyük dosya / fırtına / 10-conn)
+
+- **UDP (VoIP sim, 50pps×60sn):** 3000/3000, %0 kayıp, RTT med 93ms / p95 169ms (sim bazı ~80ms)
+- **Upload tek-akış:** ~2.2Mbit (download ~12Mbit'in altında); 4 akışta 9.4Mbit — akış-başı
+  BBR dinamiği, config sorunu değil. Arama için fazlasıyla yeter (100kbit–2Mbit).
+- **500MB:** bütünlük OK (md5 eşleşti), 32.7s, kesinti yok
+- **Handshake fırtınası:** 10/10 fresh Reality handshake ~0.3–0.8s, firesiz
+- **10×2MB eşzamanlı:** hepsi 1.3–2.4s, 0 hata
+- Not: live `:443` hashlimit aynı-IP'den 10 ani handshake'in fazlasını geciktirir;
+  farklı IP'lerde sorun yok, aynı ev-NAT'ında aynı-anda reconnect'te retry ile düzelir.
+
 ## Notlar
 
 - Ara 2.3s yavaşlama bölümü tekrarlanamadı → kirli restart artığıydı, BBR değil (çift-kontrol edildi).
