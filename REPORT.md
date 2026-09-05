@@ -30,6 +30,16 @@ Profilller (çift-yön): hafif 20ms/%0.2/500Mbit, std 40ms/%1/200Mbit, sert 100m
 - **GOGC=50**: A/B/C farkı gürültüde, test edilmedi.
 - **Dev buffer sysctl'leri**: körlemesine eklenmedi.
 
+## Çoklu-cihaz yük testi (3 client, bulk+web+seyrek, aynı darboğaz)
+
+- mild: 33sn toplam, bulk ~0.9s, web ~0.15s, sparse ~0.15s — tekliyle AYNI, bozulma yok
+- std: 37sn toplam, bulk ~2.2s (tekli 1.28), web ~0.3s, sparse ~0.3s + nadir 0.8–1.4s outlier
+- Tüm koşularda 0 curl hatası. Server CPU yükte ~%1.5 (1vCPU), RSS ~38MB.
+- Hüküm: tuning'ler 3 cihazda tutarlı, açlık/starvation yok. Yeni tuning ihtiyacı YOK.
+- İtiraf: ilk kötü multi sonuçları test artefaktıydı — rig portundaki hashlimit (XRAYT)
+  3 client'ın ortak IP'sini boğmuş (698 DROP). Kaldırılıp baştan ölçüldü. Live :443 kuralı
+  gerçekte cihaz-başı IP ile çalışır, sorun yok.
+
 ## Notlar
 
 - Ara 2.3s yavaşlama bölümü tekrarlanamadı → kirli restart artığıydı, BBR değil (çift-kontrol edildi).
