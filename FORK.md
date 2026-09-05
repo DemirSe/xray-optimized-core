@@ -64,6 +64,15 @@ Kural: config şeması ve Reality handshake BİREBİR aynı kalır (client stock
 - Upstream workflow'lar fork'ta kapatıldı (sadece trimmed-build).
 - SIRADAKİ: rig A/B (:1443, server) + rollout — server'a dokunur, ayrı y/n gerekir.
 
+## Rollout (2026-09-05) — CANLIYA ALINDI
+
+- A/B: 2MB stock ~1.26s / fork ~1.19s (eşit, kabul). 10KB yük-altında stock 4/4
+  bozuldu (2–3s stall), fork 4/4 stabil ~0.3s. RSS fork 27MB / stock 38MB.
+  Mekanizma bilinmiyor (server işleme anında, stall altta yatan TCP'de) — muhafazakar
+  hüküm: fork stock'tan kötü değil, yükte daha stabil göründü.
+- Live `:443` fork binary (1374f79) + Meta forward doğrulandı.
+- Rollback: `systemctl stop xray; cp /usr/local/bin/xray.stock-26.3.27 /usr/local/bin/xray; systemctl start xray`.
+
 ## Beklenen kazanç (ölçülmeden iddia yok)
 
 - Binary küçülür + tedarik-zinciri daralır (az bağımlılık = az CVE yüzeyi).
