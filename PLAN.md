@@ -9,7 +9,8 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 - Politika: %100 TUN, bypass YOK, WhatsApp dahil her şey tünel içi
 - In: IPv4:443 only (client v4), Out: dual v4/v6 (client v6 out OK)
 - Dest: SADECE whatsapp.net ailesi, fallback YOK (kabul edilen risk: dest bozulursa net gider)
-- Core: FORK DemirSe/xray-optimized-core (parent XTLS/Xray-core, pin stabil v26.3.27). Günlük kural: upstream tag'i takip et, core diff'i最小 tut (gün-1: sadece build+config, mantık değişikliği yok)
+- Fork kapsam: server-only kırpılmış build, client stock Hiddify sabit. Tut: VLESS+Reality+Vision+TCP+UDP+freedom+v4/v6, config şeması aynı. Kırp: VMess/Trojan/SS/gRPC/QUIC/API vb.
+- Test: stock-client+stock-server vs stock-client+fork-server, tekrarlı (sayı+metrik netleşecek). VPS-local loopback sadece binary CPU/RAM/throughput için, gerçek ağ testi ayrı.
 - Log: optimize bitene kadar açık (warning+access), sonra kapatılacak
 - SSH: şifre ile ilk giriş, hemen key'e geçilecek
 
