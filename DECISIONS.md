@@ -21,7 +21,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 | 4 | Log warning + logrotate | config + /etc/logrotate.d/xray | disk hijyeni |
 | 5 | GOGC=20 | /etc/systemd/system/xray.service.d/20-gogc.conf | ~3MB RAM |
 | 6 | syn_backlog 2048 | 99-xray-bbr.conf (somaxconn zaten 4096) | tarama dayanımı |
-| 7 | 443 hashlimit 20/dk burst8 | iptables XRAYL + netfilter-persistent | flood kesintisi |
+| 7 | ~~443 hashlimit~~ KALDIRILDI (2026-09-05) — mobil CGNAT'lı telefonu engelledi, server zaten boşta olduğu için koruma gereksizdi |
 | 8 | demir+key+sudo, root kapalı | sshd_config.d/99-no-root.conf | hardening |
 
 ## Reddedilenler
