@@ -105,3 +105,10 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - B bytespool: tier'lar buf.Size ile hizalı (8K tam), 16KB→32K firesi hacimde önemsiz.
 - C Reality resume: upstream'de yok + "not planned" kapatılmış; client desteği de yok.
   shortId zaten optimal (16-hex). Yapılacak iş yok.
+
+## Uplink splice deneyi (2026-09-06): KAPATILDI, merge yok
+
+- Upstream TODO'su açıldı (2 flag), build + doğruluk OK (md5 tuttu).
+- A/B upload: baz 51MB/s = deney 55MB/s (gürültü). strace: SIFIR splice çağrısı —
+  tek flag yetmiyor, uplink direct-copy state machine'i yok.
+- Derin cerrahi = upstream risk alanı; upload zaten 424Mbit+. Branch silindi.
