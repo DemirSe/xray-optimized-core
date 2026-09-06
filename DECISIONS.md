@@ -129,3 +129,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 - cloud-init (50) + Netlen (99) drop-in'leri `yes` ile eziyordu. İkisi de `no` yapıldı,
   efektif `sshd -T` + key-giriş testi doğrulandı.
+
+## Access-log off + fd-limit (2026-09-06)
+
+- Access log kapatıldı (kimse okumuyordu), fd soft limit 1024→65535.
