@@ -82,3 +82,11 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - Hüküm: alloc azaldı ama ns/op 2x kötüleşti; ikisi de akış-başına bir kez koşuyor,
   toplam etkinin %6'sı. Karmaşıklığa değmez. Branch `perf-isc` referans duruyor.
   Nil-buffer'da orijinal panic'liyordu (testle kanıtlı), yeni sürüm dayanıklı.
+
+## Log-seviye kapısı (2026-09-06): MERGE EDİLDİ ✓
+
+- Bulgu: errors.doLog seviyeye bakmadan Caller+alloc yapıyordu (filtre downstream'deydi).
+- Yama: common/log'da atomik global seviye + 4 fonksiyonda erken dönüş; app/log
+  start'ta config'den beslenir. Davranış paritesi çift-yönlü doğrulandı.
+- A/B (sim): 10KB/bulk aynı; 100-akış fırtına base 39.6s → **34.7s (%12)**.
+- trimmed'a merge + push (CI koşuyor).
