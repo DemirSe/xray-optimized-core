@@ -8,7 +8,7 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 - Cihaz: max 3 (Android+Win+Linux), tek ortak UUID + tek shortId
 - Politika: %100 TUN, bypass YOK, WhatsApp dahil her şey tünel içi
 - In: IPv4:443 only (client v4), Out: dual v4/v6 (client v6 out OK)
-- Dest: SADECE whatsapp.net ailesi, fallback YOK (kabul edilen risk: dest bozulursa net gider)
+- Dest/SNI: her zaman yalnızca `whatsapp.net` (`dest=whatsapp.net:443`, `serverNames=[whatsapp.net]`). Başka domain veya alt domaine geçiş YOK; dest fallback YOK (kabul edilen risk: dest bozulursa bağlantı kesilir).
 - Fork kapsam: server-only kırpılmış build, client stock Hiddify sabit. Tut: VLESS+Reality+Vision+TCP+UDP+freedom+v4/v6, config şeması aynı. Kırp: VMess/Trojan/SS/gRPC/QUIC/API vb.
 - Test: stock-client+stock-server vs stock-client+fork-server, tekrarlı (sayı+metrik netleşecek). VPS-local loopback sadece binary CPU/RAM/throughput için, gerçek ağ testi ayrı.
 - Log: optimize bitene kadar açık (warning+access), sonra kapatılacak
@@ -22,15 +22,15 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 5. TUN: Android tek VPN izni, Win/Lin admin ister. DNS remote `tcp://1.1.1.1`, Local DNS TUN bozar. UDP, TCP tünel içinde taşınır (oyun/VoIP çalışır, latency artar).
 
 ## Plan
-0. Server'da dest seç: `xray tls ping web.whatsapp.com:443` + `whatsapp.net:443` + `www.whatsapp.com:443`, en temizini al. serverNames/dest ona göre.
-1. Server: resmi XTLS/Xray-install, VLESS `xtls-rprx-vision`, `target=SECILEN_DEST`, `serverNames=[SECILEN_SNI]`, shortId random 8byte, fp=chrome, 443 TCP dinle, ufw/firewall aç, BBR aç.
+0. Sabit dest'i doğrula: `xray tls ping whatsapp.net:443`. Başka dest/SNI seçilmez.
+1. Server: resmi XTLS/Xray-install, VLESS `xtls-rprx-vision`, `target=whatsapp.net:443`, `serverNames=[whatsapp.net]`, shortId random 8byte, fp=chrome, 443 TCP dinle, ufw/firewall aç, BBR aç.
 2. Tek vless:// link üret (uuid, pbk, sid, sni, fp=chrome, flow=vision).
 3. Client 3 OS: Hiddify, TUN ON + System Proxy ON, Strict Route ON, IPv4-only (başta), Remote DNS tcp://1.1.1.1, UDP enabled. WhatsApp bypass YOK (önce içinden dene).
 4. Test: ifconfig.me, dnsleaktest, WhatsApp mesaj + sesli + görüntülü, UDP test, speedtest. Bozulursa fallback: WhatsApp per-app bypass.
 
 ## Fallback
 - WhatsApp call kötü ise: Android per-app bypass (Bypass mode + WhatsApp seç), Win/Lin route rule `whatsapp.net,whatsapp.com direct`.
-- Dest bozulursa: `www.microsoft.com` gibi stabil dest'e geç (1 komut).
+- Dest bozulursa: başka hedefe geçilmez; yalnızca `whatsapp.net` erişimi teşhis edilir ve düzelmesi beklenir.
 
 ## Sonraki adım
 Server SSH hazır mı? Hazırsa dest ping + kurulum komutunu veriyorum.

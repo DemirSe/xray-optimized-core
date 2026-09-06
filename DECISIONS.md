@@ -4,12 +4,12 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 ## Kilitli kararlar
 
-- SNI/dest: SADECE `whatsapp.net` (`dest=whatsapp.net:443`, serverNames=[whatsapp.net]). Fallback YOK.
-- Protokol: VLESS + Reality + `xtls-rprx-vision`, `:443`, stock Xray v26.3.27 (stabil pin).
+- SNI/dest: HER ZAMAN SADECE `whatsapp.net` (`dest=whatsapp.net:443`, serverNames=[whatsapp.net]). Başka domain/alt domain ve manuel/otomatik dest fallback YOK (2026-09-06 kullanıcı kararı). Hedef erişilemezse başka hedefe geçilmez; bağlantı kesintisi kabul edilen risk.
+- Protokol: VLESS + Reality + `xtls-rprx-vision`, `:443`, Xray v26.3.27 tabanlı fork `400d51d` (trim + log-seviye kapısı).
 - Client: stock Hiddify 3 OS'ta (tek tip). TUN system + Strict route + Bypass LAN OFF + IPv6 route Enable.
 - %100 TUN, bypass yok. Tek ortak UUID (3 cihaz).
 - In v4-only, out dual v4/v6.
-- Fork: ERTELENDİ (gerekçe: server boşta, stock yetiyor; ihtiyaç ölçümle doğarsa).
+- Fork: CANLIDA `400d51d` (2026-09-06: çalışan binary sürümü + fork commit zinciri doğrulandı; çalışan/disk binary hash'leri aynı). Stock v26.3.27 geri dönüş yedeği.
 
 ## Uygulanan tuning (hepsi kalıcı + doğrulandı)
 
@@ -27,7 +27,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 ## Reddedilenler
 
 - Yaprak qdisc farkı (ölçüldü: yok) • keepalive (ölçüldü: conn 20sn'de kapanıyor)
-- GOGC50 (fark gürültüde) • dev buffer'lar (körlemesine yok) • fork (ertelendi)
+- GOGC50 (fark gürültüde) • dev buffer'lar (körlemesine yok)
 
 ## Bilinen riskler / açık işler
 
@@ -39,7 +39,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
   (80ms-RTT sim'de) delayed-ACK yığını; kernelde delack_min yok, per-socket QUICKACK invaziv —
   bırakıldı. Gerçek-hat RTT'si (10–30ms) ile orantılı küçülür, sorun değil.
 - Gerçek-hat testi yapılmadı (sim ≠ ISP). Bekleyen: kullanıcının Windows/Android testi + WhatsApp sesli/görüntülü.
-- Aynı ev-NAT'ından 10 ani handshake → hashlimit geciktirir (retry ile düzelir).
+- ~~Aynı ev-NAT'ından 10 ani handshake → hashlimit geciktirir~~ GEÇERSİZ (2026-09-06: hashlimit 2026-09-05'te kaldırılmıştı — CGNAT'lı telefonu engellemişti; aktif v4+v6 + kalıcı kurallarda canlı doğrulandı, yok).
 - Upload tek-akış ~2.2Mbit (çok-akışta 9.4Mbit) — arama için yeterli, dev upload yavaş.
 - /tmp tmpfs 484MB — büyük işler /var/tmp'ye.
 - Canlı secret'lar: /root/xray-meta.env + /root/xray-privkey (600). vless linki ~/vless-link.txt (Fedora).
@@ -140,8 +140,9 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 2. LLMNR kapatıldı ✓ (resolved drop-in)
 3. X11Forwarding no ✓ | 4. accept_redirects=0 ✓
 5. /var/tmp 520MB test çöpü silindi ✓ | 6. journal cap 100M ✓ (49M mevcut kaldı, sorun değil)
-7. Çekirdek: 2 sürüm BİLEREK duruyor (fallback); .107 reboot bekliyor (#9 ile bağlantılı)
-8. core_pattern=/dev/null ✓ | 9-10. otomatik-reboot + yedek: karar/senin işin (açık)
+7. Çekirdek: 2 sürüm BİLEREK duruyor (fallback); 2026-09-06 kontrollü reboot tamamlandı. Yeni boot ID + `uname -r`: `6.12.107+deb13-cloud-amd64`; SSH, Xray `400d51d`, :443 ve BBR/fq doğrulandı, başarısız systemd birimi yok. Reboot sonrası kullanıcı telefonda VPN bağlantısını ve WhatsApp mesajlaşmasını doğruladı. Sesli/görüntülü arama test edilmedi; kullanıcı arama testi yapmayacak.
+8. core_pattern=/dev/null ✓ | 9. Otomatik reboot KAPALI kalacak (`Automatic-Reboot=false`); güncelleme sonrası reboot yalnızca kullanıcının açık onayıyla yapılır (2026-09-06 kullanıcı kararı).
+10. Yerel yedek alındı: `~/backups/xray/20260906T184036Z/` (şifresiz, Git dışında; dizin 700/dosya 600). Config+anahtarlar, sysctl, servis, firewall ve 3 binary; arşiv/hash kontrolleri geçti. Tam sunucu imajı değil, restore denenmedi; düzenli yedek politikası açık.
 
 ## 20-madde turu uygulamaları (2026-09-06)
 
