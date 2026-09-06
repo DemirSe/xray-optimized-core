@@ -93,3 +93,8 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
   start'ta config'den beslenir. Davranış paritesi çift-yönlü doğrulandı.
 - A/B (sim): 10KB/bulk aynı; 100-akış fırtına base 39.6s → **34.7s (%12)**.
 - trimmed'a merge + push (CI koşuyor).
+
+## Rollout log-kapılı build (2026-09-06): CANLIDA ✓
+
+- Binary 400d51d (CI artifact, sha doğrulamalı). Yedek: xray.trimmed-prev (+stock).
+- Forward doğrulandı. Rollback: stop + geri kopyala + start.
