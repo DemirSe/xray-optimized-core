@@ -118,3 +118,9 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - 25sn yük-altı CPU profili: %52 syscall I/O, %19 AES-GCM (donanım), kalan handshake gürültüsü.
 - Cipher şüphesi çürütüldü: Reality HW-aware seçim yapıyor (AES-NI varsa AES-GCM).
 - Kilit/mutex/block profilleri de temizdi. Kod-içi darboğaz resmen YOK.
+
+## Server: swap + THP (2026-09-06)
+
+- Swap yoktu (OOM'da sshd ölmüştü) → 2GB swapfile + fstab + swappiness=10.
+- THP always→madvise (runtime + systemd unit). Compaction stall'ları gider.
+- Reddedilen: yeni çekirdek (risk/fayda kötü), mitigations=off (komşuya anahtar sızıntısı).
