@@ -133,3 +133,12 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 ## Access-log off + fd-limit (2026-09-06)
 
 - Access log kapatıldı (kimse okumuyordu), fd soft limit 1024→65535.
+
+## 10-madde server hijyeni (2026-09-06)
+
+1. Lab dinleyiciler kapatıldı ✓ (gerekirse SIM.md ile kurulur)
+2. LLMNR kapatıldı ✓ (resolved drop-in)
+3. X11Forwarding no ✓ | 4. accept_redirects=0 ✓
+5. /var/tmp 520MB test çöpü silindi ✓ | 6. journal cap 100M ✓ (49M mevcut kaldı, sorun değil)
+7. Çekirdek: 2 sürüm BİLEREK duruyor (fallback); .107 reboot bekliyor (#9 ile bağlantılı)
+8. core_pattern=/dev/null ✓ | 9-10. otomatik-reboot + yedek: karar/senin işin (açık)
