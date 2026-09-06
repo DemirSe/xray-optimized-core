@@ -112,3 +112,9 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - A/B upload: baz 51MB/s = deney 55MB/s (gürültü). strace: SIFIR splice çağrısı —
   tek flag yetmiyor, uplink direct-copy state machine'i yok.
 - Derin cerrahi = upstream risk alanı; upload zaten 424Mbit+. Branch silindi.
+
+## Derin CPU profili (2026-09-06): işlem yok
+
+- 25sn yük-altı CPU profili: %52 syscall I/O, %19 AES-GCM (donanım), kalan handshake gürültüsü.
+- Cipher şüphesi çürütüldü: Reality HW-aware seçim yapıyor (AES-NI varsa AES-GCM).
+- Kilit/mutex/block profilleri de temizdi. Kod-içi darboğaz resmen YOK.
