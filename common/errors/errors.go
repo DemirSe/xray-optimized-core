@@ -139,18 +139,30 @@ func New(msg ...interface{}) *Error {
 }
 
 func LogDebug(ctx context.Context, msg ...interface{}) {
+	if !log.Passes(log.Severity_Debug) {
+		return
+	}
 	doLog(ctx, nil, log.Severity_Debug, msg...)
 }
 
 func LogDebugInner(ctx context.Context, inner error, msg ...interface{}) {
+	if !log.Passes(log.Severity_Debug) {
+		return
+	}
 	doLog(ctx, inner, log.Severity_Debug, msg...)
 }
 
 func LogInfo(ctx context.Context, msg ...interface{}) {
+	if !log.Passes(log.Severity_Info) {
+		return
+	}
 	doLog(ctx, nil, log.Severity_Info, msg...)
 }
 
 func LogInfoInner(ctx context.Context, inner error, msg ...interface{}) {
+	if !log.Passes(log.Severity_Info) {
+		return
+	}
 	doLog(ctx, inner, log.Severity_Info, msg...)
 }
 

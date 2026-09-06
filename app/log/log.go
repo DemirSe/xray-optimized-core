@@ -95,6 +95,8 @@ func (g *Instance) startInternal() error {
 		return errors.New("failed to initialize error logger").Base(err).AtWarning()
 	}
 
+	log.SetGlobalLevel(g.config.ErrorLogLevel)
+
 	return nil
 }
 
