@@ -142,3 +142,10 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 5. /var/tmp 520MB test çöpü silindi ✓ | 6. journal cap 100M ✓ (49M mevcut kaldı, sorun değil)
 7. Çekirdek: 2 sürüm BİLEREK duruyor (fallback); .107 reboot bekliyor (#9 ile bağlantılı)
 8. core_pattern=/dev/null ✓ | 9-10. otomatik-reboot + yedek: karar/senin işin (açık)
+
+## 20-madde turu uygulamaları (2026-09-06)
+
+- Firewall: default-deny (22+443, v4+v6, kalıcı), yeni SSH + live doğrulandı.
+- timestamps=0, kptr_restrict=1, apt AutocleanInterval=7, GRUB 1sn, MOTD kapalı.
+- needrestart zaten kuruluymuş. Atlananlar (bilinçli): per-device UUID, Restart=always,
+  Watchdog, SSH-port, shortId-rotasyon, policy-timeout, chrony (hepsi kayıtta, gerekçeli).
