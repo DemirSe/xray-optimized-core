@@ -43,3 +43,15 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - Upload tek-akış ~2.2Mbit (çok-akışta 9.4Mbit) — arama için yeterli, dev upload yavaş.
 - /tmp tmpfs 484MB — büyük işler /var/tmp'ye.
 - Canlı secret'lar: /root/xray-meta.env + /root/xray-privkey (600). vless linki ~/vless-link.txt (Fedora).
+
+## Maksimum throughput avı (2026-09-06, lab, DÜZELTME içerir)
+
+- DOĞRU tavan (loopback, düzgün zamanlama): aggregate **~190MB/s (1.5Gbit)**,
+  1-akış 227MB/s > 8-akış toplamı. CPU: srv %28 + cli %29 (tek çekirdek).
+- Sınırlayıcı: tek-çekirdek userspace işleme (TLS+Vision framing, iki uçta).
+  GOMAXPROCS=1 (nproc=1) — paralelleşme yok, akış artınca verim DÜŞÜYOR.
+- DÜZELTME: önceki "10Gbit/0.25sn" sayısı subshell-zamanlama artefaktıydı
+  (`( cmd & )` + wait patterni). Geçersiz, yerine bu sayı geçer.
+- Pratik hüküm: gerçek-hat/sim hiçbir zaman bu tavana ulaşamaz (ağ önce kapsar:
+  sim'de 12Mbit, gerçek mobilde ~500Mbit). 3 kullanıcı için headroom devasa.
+  Yapılacak tuning YOK.
