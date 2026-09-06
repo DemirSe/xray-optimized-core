@@ -149,3 +149,12 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - timestamps=0, kptr_restrict=1, apt AutocleanInterval=7, GRUB 1sn, MOTD kapalı.
 - needrestart zaten kuruluymuş. Atlananlar (bilinçli): per-device UUID, Restart=always,
   Watchdog, SSH-port, shortId-rotasyon, policy-timeout, chrony (hepsi kayıtta, gerekçeli).
+
+## buf32 A/B (dürüst sonuç) + firewall dersi (2026-09-06)
+
+- İlk "buf32 asılıyor" bulgusu YANLIŞTI: kendi firewall'ım lab portlarını kesmiş
+  (SYN tcpdump'ta görülüp cevapsız kalıyordu). Kural eklenince buf32 çalıştı.
+- Adil A/B: 8K ≈ 32K (bulk medyan ~1.17sn ikisi de, 10KB ~0.285sn, CPU ~sıfır).
+  MERGE YOK (fayda yok). Branch duruyor.
+- Ders: lab portları FW'de allow'lu (10.200.0.0/30); yeni test portu açılınca
+  kontrol edilecek ilk yer firewall.
