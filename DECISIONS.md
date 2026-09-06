@@ -74,3 +74,11 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
   İkisi de latency'yi ilgilendirmez (farklı eksen).
 - Pratik not: gerçek-hat en hızlı ölçüm ~500Mbit (60MB/s) — tavanın 5'te 1'i.
   Bu tavan hiç dokunulmayacak.
+
+## IsCompleteRecord rewrite (2026-09-06): MERGE YOK
+
+- Sebep (alloc profili): akış-başı padding kontrolü akış-başı 18KB kopya.
+- Bench (16KB TLS record): eski 16.5µs/78KB/18alloc ↔ yeni 35µs/60KB/17alloc.
+- Hüküm: alloc azaldı ama ns/op 2x kötüleşti; ikisi de akış-başına bir kez koşuyor,
+  toplam etkinin %6'sı. Karmaşıklığa değmez. Branch `perf-isc` referans duruyor.
+  Nil-buffer'da orijinal panic'liyordu (testle kanıtlı), yeni sürüm dayanıklı.
