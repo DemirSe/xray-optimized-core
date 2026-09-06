@@ -1,7 +1,7 @@
 name: trimmed-build
 on:
   push:
-    branches: [trimmed]
+    branches: [trimmed, main]
   workflow_dispatch:
 
 jobs:
