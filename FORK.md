@@ -77,3 +77,9 @@ Kural: config şeması ve Reality handshake BİREBİR aynı kalır (client stock
 
 - Binary küçülür + tedarik-zinciri daralır (az bağımlılık = az CVE yüzeyi).
 - Hız artışı BEKLENMEZ (hot path zaten Vision/splice; RSS/CPU aynı kalırsa başarı).
+
+## Main (2026-09-06)
+
+- `main` = v26.3.27 pin + trim + log-kapısı (upstream-bleeding değil, bilinçli).
+- CI `trimmed-build` main+trimmed pushlarında yeşil.
+- Sıradaki: canlı rollout (ayrı y/n).
