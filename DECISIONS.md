@@ -33,6 +33,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 - Reboot persistence: TEST EDİLDİ ✓ (2026-09-05) — sysctl+iptables+xray+GOGC+loglevel hepsi geri geldi,
   eth0 boot'ta otomatik fq aldı. Sim rig (netns/test prosesleri) kalıcı değil, gerekirse SIM.md ile kurulur.
+- Kilit profili (2026-09-06, 500-akış): mutex toplam 17ms (tek-seferlik x509 init), block %92 idle-park. Çekişme YOK. dev-prof branch merge edilmedi, sadece lab.
 - Latency avı (2026-09-06, lab): TCP_NODELAY yaması ETKİSİZ (10KB/handshake/bulk aynı) — merge
   edilmedi, branch silindi. autocorking=0 + no_metrics_save=1 ETKİSİZ — geri alındı. Kalan ~200ms
   (80ms-RTT sim'de) delayed-ACK yığını; kernelde delack_min yok, per-socket QUICKACK invaziv —
