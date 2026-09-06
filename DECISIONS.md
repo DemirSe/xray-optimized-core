@@ -78,7 +78,10 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 ## IsCompleteRecord rewrite (2026-09-06): MERGE YOK
 
 - Sebep (alloc profili): akış-başı padding kontrolü akış-başı 18KB kopya.
-- Bench (16KB TLS record): eski 16.5µs/78KB/18alloc ↔ yeni 35µs/60KB/17alloc.
+- Bench 16KB: eski 16.5µs/78KB/18alloc ↔ yeni 35µs/60KB/17alloc.
+  Bench gerçekçi-küçük (~517B, 3 parça, ×3 tekrar): eski ~4.1µs/26KB/12alloc ↔
+  yeni ~4.4-5.4µs/25.4KB/11alloc. Fark: akış-başı 1 alloc (~600B) + 0.5µs.
+  Server A/B'ye gerek görülmedi (ölçülemez mertebe).
 - Hüküm: alloc azaldı ama ns/op 2x kötüleşti; ikisi de akış-başına bir kez koşuyor,
   toplam etkinin %6'sı. Karmaşıklığa değmez. Branch `perf-isc` referans duruyor.
   Nil-buffer'da orijinal panic'liyordu (testle kanıtlı), yeni sürüm dayanıklı.
