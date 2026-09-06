@@ -164,3 +164,9 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 - Lab komple söküldü (unitler, helperlar, sim, /tmp + /var/tmp artıkları).
 - Dinleyen: :443 live + :22 + local DNS. Yedekler duruyor (stock + trimmed-prev).
+
+## maintain.sh — manuel bakım (PENDING: ilk canlı çalıştırma yapılmadı)
+
+- Kullanım (yerel PC'den, manuel): `./maintain.sh <ssh-dest>` (örn. `./maintain.sh demir@<sunucu>`). IP/kimlik repoya yazılmaz; strict host verification; `sudo -n` yoksa fail-fast. Test: `bash tests/maintain-smoke.sh` (offline fake-ssh).
+- Politika: otomatik güncelleme KAPALI hedeflenir (apt-daily/apt-daily-upgrade timer disable + `99-disable-auto-upgrades` Periodic override). `apt-get update` ve `upgrade` yalnızca açık onayla, simülasyon gösterilerek; `-y/full-upgrade/autoremove` YOK, configler korunur (`--force-confold`), restart uyarısı var. Timer/cron kurulmaz, otomatik reboot YOK.
+- Yerel yedek: `~/backups/xray/<TS>Z/` (Git dışı, şifresiz, 700/600, umask 077). Kapsam: config+anahtarlar, sysctl, unit/drop-in, SSH drop-in, firewall (kalıcı+canlı), 3 binary, APT politikası. Sınırlama: tam imaj DEĞİL, restore DENENMEDİ; kısmi yedek INCOMPLETE işaretli kalır, hata sonrası ilerleme yok.
