@@ -124,3 +124,8 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - Swap yoktu (OOM'da sshd ölmüştü) → 2GB swapfile + fstab + swappiness=10.
 - THP always→madvise (runtime + systemd unit). Compaction stall'ları gider.
 - Reddedilen: yeni çekirdek (risk/fayda kötü), mitigations=off (komşuya anahtar sızıntısı).
+
+## sshd şifre-auth kapatıldı (2026-09-06)
+
+- cloud-init (50) + Netlen (99) drop-in'leri `yes` ile eziyordu. İkisi de `no` yapıldı,
+  efektif `sshd -T` + key-giriş testi doğrulandı.
