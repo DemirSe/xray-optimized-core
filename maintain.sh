@@ -42,11 +42,13 @@ die(){ echo "ABORT: $*" >&2
   exit 1; }
 confirm(){ local a; read -r -p "$1 [y/N] " a || return 1
   case "$a" in y|Y|yes|YES) return 0;; *) echo "(declined)"; return 1;; esac; }
-rsp(){ "${SSH[@]}" "$SSH_DEST" "$1" </dev/null; }  # non-interactive: stdin isolated
+rrun(){ local s="$1"; local q; q="$(printf '%q' "$s")"; "${SSH[@]}" "$SSH_DEST" "bash -c $q"; }  # explicit remote bash, one quoted word
+rsp(){ rrun "$1" </dev/null; }  # non-interactive: stdin isolated
 RHEAD='set -euo pipefail
 export PATH="$PATH:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin"'
-REQ='usr/local/etc/xray/config.json usr/local/bin/xray usr/local/bin/xray.stock-26.3.27 usr/local/bin/xray.trimmed-prev etc/systemd/system/xray.service etc/systemd/system/xray.service.d/10-donot_touch_single_conf.conf etc/systemd/system/xray.service.d/20-gogc.conf etc/systemd/system/xray.service.d/30-limits.conf etc/iptables/rules.v4 etc/iptables/rules.v6 etc/sysctl.d/99-xray-bbr.conf etc/logrotate.d/xray root/xray-meta.env root/xray-privkey usr/local/bin/xray-watch.sh etc/apt/apt.conf.d/20auto-upgrades etc/apt/apt.conf.d/50unattended-upgrades etc/ssh/sshd_config.d/50-cloud-init.conf etc/ssh/sshd_config.d/98-allowusers.conf etc/ssh/sshd_config.d/99-extra.conf etc/ssh/sshd_config.d/99-netlen.conf etc/ssh/sshd_config.d/99-no-root.conf etc/ssh/sshd_config.d/99-nox11.conf'
-OPT='etc/apt/apt.conf.d/99-disable-auto-upgrades'
+REQ_FILES='usr/local/bin/xray usr/local/bin/xray.stock-26.3.27 usr/local/bin/xray.trimmed-prev etc/systemd/system/xray.service etc/iptables/rules.v4 etc/iptables/rules.v6 etc/sysctl.d/99-xray-bbr.conf etc/logrotate.d/xray root/xray-meta.env root/xray-privkey usr/local/bin/xray-watch.sh'
+REQ_DIRS='usr/local/etc/xray etc/apt/apt.conf.d etc/ssh/sshd_config.d etc/systemd/system/xray.service.d'
+REQ_MEMBERS='usr/local/etc/xray/config.json etc/apt/apt.conf.d/20auto-upgrades etc/apt/apt.conf.d/50unattended-upgrades etc/systemd/system/xray.service.d/10-donot_touch_single_conf.conf etc/systemd/system/xray.service.d/20-gogc.conf etc/systemd/system/xray.service.d/30-limits.conf etc/ssh/sshd_config.d/99-no-root.conf'
 BINS='usr/local/bin/xray usr/local/bin/xray.stock-26.3.27 usr/local/bin/xray.trimmed-prev'
 
 echo "STATUS: INCOMPLETE ($TS)" > "$DEST/STATUS" || die "cannot write STATUS"
@@ -56,16 +58,21 @@ chmod 600 "$DEST/STATUS" || die "cannot chmod STATUS"
 busy_check(){ # busy_check <stage>: read-only, dies if apt is working
   rsp "$RHEAD
 echo '== apt-procs =='
-ps -e -o comm= | grep -x -e apt-get -e apt -e dpkg -e aptitude -e debconf -e dpkg-deb || echo PROCS_NONE
+if ps_out=\"\$(ps -e -o comm=)\"; then echo PS_OK; printf '%s\\n' \"\$ps_out\" | grep -x -e apt-get -e apt -e dpkg -e aptitude -e debconf -e dpkg-deb || echo PROCS_NONE; else echo PS_FAIL; fi
 echo '== locks =='
-if sudo -n fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; then echo LOCKS_HELD; else echo LOCKS_FREE; fi" > "$DEST/busy-$1.txt" || die "busy check ($1) ssh failed"
-  [ "$(awk '/^== apt-procs ==/{getline; print; exit}' "$DEST/busy-$1.txt")" = "PROCS_NONE" ] || die "apt/dpkg process active at $1; retry later (never kill, never stop locks)"
-  [ "$(awk '/^== locks ==/{getline; print; exit}' "$DEST/busy-$1.txt")" = "LOCKS_FREE" ] || die "apt lock held at $1; retry later (never kill, never stop locks)"
+sudo -n true
+frc=0
+sudo -n fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1 || frc=\$?
+case \$frc in 0) echo LOCKS_HELD;; 1) echo LOCKS_FREE;; *) echo \"FUSER_FAIL:\$frc\";; esac" > "$DEST/busy-$1.txt" || die "busy check ($1) ssh failed"
+  [ "$(awk '/^== apt-procs ==/{getline; print; exit}' "$DEST/busy-$1.txt")" = "PS_OK" ] || die "process check inconclusive at $1 (ps/sudo/tool error); retry later"
+  [ "$(awk '/^== apt-procs ==/{getline; getline; print; exit}' "$DEST/busy-$1.txt")" = "PROCS_NONE" ] || die "apt/dpkg process active at $1; retry later (never kill, never stop locks)"
+  lk="$(awk '/^== locks ==/{getline; print; exit}' "$DEST/busy-$1.txt")"
+  [ "$lk" = "LOCKS_FREE" ] || { [ "$lk" = "LOCKS_HELD" ] && die "apt lock held at $1; retry later (never kill, never stop locks)"; die "lock check inconclusive at $1 ($lk); retry later"; }
 }
 
 # --- 1. preflight (read-only, fail fast; prerequisite tools included) ---
 rsp "$RHEAD
-for c in systemctl sha256sum tar apt-config sshd iptables-save ip6tables-save ss tc sysctl; do command -v \"\$c\" >/dev/null || { echo \"MISSING-TOOL: \$c\" >&2; exit 12; }; done
+for c in systemctl sha256sum tar apt-config sshd iptables-save ip6tables-save ss tc sysctl ps fuser; do command -v \"\$c\" >/dev/null || { echo \"MISSING-TOOL: \$c\" >&2; exit 12; }; done
 sudo -n true && echo SUDO_OK
 systemctl is-active xray
 sha256sum /usr/local/bin/xray /usr/local/bin/xray.stock-26.3.27 /usr/local/bin/xray.trimmed-prev" > "$DEST/preflight.txt" || die "preflight ssh failed (sudo, xray-active, tools, or binary presence)"
@@ -79,12 +86,11 @@ awk '/ [\/]/{print}' "$DEST/preflight.txt" | grep -F /usr/local/bin/xray > "$DES
 rsp "$RHEAD
 list=''
 # shellcheck disable=SC2086
-for f in $REQ; do sudo -n ls -d -- \"/\$f\" >/dev/null || { echo \"MISSING: /\$f\" >&2; exit 11; }; list=\"\$list \$f\"; done
-for f in $OPT; do if sudo -n ls -d -- \"/\$f\" >/dev/null 2>&1; then list=\"\$list \$f\"; fi; done
+for f in $REQ_FILES $REQ_DIRS; do sudo -n ls -d -- \"/\$f\" >/dev/null || { echo \"MISSING: /\$f\" >&2; exit 11; }; list=\"\$list \$f\"; done
 sudo -n tar -czf - -C / \$list" > "$DEST/xray-config-backup.tar.gz" || die "backup stream failed (remote tar aborted, see error above)"
 
 # --- 3. live state, one file per call: remote failure aborts, empty result aborts ---
-get(){ "${SSH[@]}" "$SSH_DEST" "$RHEAD
+get(){ rrun "$RHEAD
 $1" </dev/null > "$2" || die "fetch failed: $2"; [ -s "$2" ] || die "empty result: $2"; }
 get "uname -a; echo \"uptime-s: \$(uptime -s)\"" "$DEST/os-kernel.txt"
 get "xray version 2>/dev/null | head -3" "$DEST/xray-version.txt"
@@ -94,13 +100,14 @@ get "sysctl -n net.ipv4.tcp_congestion_control; tc qdisc show dev eth0" "$DEST/s
 get "sudo -n sshd -T" "$DEST/sshd-effective.txt"
 get "sudo -n iptables-save" "$DEST/live-iptables-v4.rules"
 get "sudo -n ip6tables-save" "$DEST/live-ip6tables-v6.rules"
-get "cat /etc/apt/apt.conf.d/20auto-upgrades; if [ -f /etc/apt/apt.conf.d/99-disable-auto-upgrades ]; then cat /etc/apt/apt.conf.d/99-disable-auto-upgrades; fi; echo '== apt-config =='; apt-config dump | grep -i periodic; echo '== timers =='; systemctl is-enabled apt-daily.timer apt-daily-upgrade.timer || true; systemctl is-active apt-daily.timer apt-daily-upgrade.timer || true; if [ -f /var/log/unattended-upgrades/unattended-upgrades.log ]; then tail -5 /var/log/unattended-upgrades/unattended-upgrades.log; else echo 'no unattended log'; fi" "$DEST/apt-policy.txt"
+get "cat /etc/apt/apt.conf.d/20auto-upgrades; if [ -f /etc/apt/apt.conf.d/99-disable-auto-upgrades ]; then cat /etc/apt/apt.conf.d/99-disable-auto-upgrades; fi; echo '== apt-config =='; apt-config dump | grep -i periodic; echo '== timers =='; systemctl is-enabled apt-daily.timer apt-daily-upgrade.timer || true; systemctl is-active apt-daily.timer apt-daily-upgrade.timer || true" "$DEST/apt-policy.txt"
 chmod 600 "$DEST"/* || die "cannot chmod backup files"
 
 # --- 4. validate BEFORE any mutation: expected entries + binary content vs pre-hashes ---
 tar -tzf "$DEST/xray-config-backup.tar.gz" > "$DEST/archive-list.txt" || die "archive unreadable"
 # shellcheck disable=SC2086
-for e in $REQ; do grep -qxF "$e" "$DEST/archive-list.txt" || die "archive missing: $e"; done
+for e in $REQ_FILES $REQ_MEMBERS; do grep -qxF "$e" "$DEST/archive-list.txt" || die "archive missing: $e"; done
+for d in $REQ_DIRS; do grep -qxF "$d/" "$DEST/archive-list.txt" || die "archive missing dir: $d"; done
 mkdir "$DEST/.xbin" || die "cannot create extract dir"
 # shellcheck disable=SC2086
 tar -xzf "$DEST/xray-config-backup.tar.gz" -C "$DEST/.xbin" $BINS || die "binary extract failed"
@@ -124,8 +131,8 @@ BACKUP_DONE=1
 echo "backup COMPLETE: $DEST"
 
 # --- 5. recheck busyness, then disable automatic apt (idempotent, reversible) ---
-busy_check predisable
 confirm "Backup COMPLETE. Disable automatic apt timers + periodic updates?" || die "stopped before any mutation (backup kept)"
+busy_check predisable
 rsp "$RHEAD
 sudo -n systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
 printf '%s\n' 'APT::Periodic::Update-Package-Lists \"0\";' 'APT::Periodic::Unattended-Upgrade \"0\";' 'APT::Periodic::Download-Upgradeable-Packages \"0\";' 'APT::Periodic::AutocleanInterval \"0\";' | sudo -n tee /etc/apt/apt.conf.d/99-disable-auto-upgrades >/dev/null" || die "disable step failed (systemctl/tee aborted)"
@@ -150,7 +157,7 @@ sudo -n apt-get -s upgrade" > "$DEST/upgrade-sim.txt" || die "simulate failed"
   echo "--- simulated upgrade plan ---"; cat "$DEST/upgrade-sim.txt"
   echo "WARNING: package updates can restart services."
   if confirm "Apply conservative upgrade (keeps configs, no -y/full-upgrade/autoremove)?"; then
-    "${SSH[@]}" "$SSH_DEST" "$RHEAD
+    rrun "$RHEAD
 sudo -n apt-get upgrade -o Dpkg::Options::=--force-confold" || die "upgrade failed/aborted"
   else echo "upgrade skipped by user (no change made)"; fi
 else echo "refresh skipped by user (no change made)"; fi

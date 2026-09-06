@@ -168,6 +168,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 ## maintain.sh — manuel bakım (PENDING: ilk canlı çalıştırma yapılmadı)
 
 - Düzeltme turu (2026-09-06, canlı yok): remote bloklar `set -euo pipefail`, hata gizleyen pipe/marker kalıpları kaldırıldı (dosya-başı get, entry+hash doğrulaması, apt-config dump ile efektif politika teyidi, `:443`→xray sahipliği, bbr tam-eşleşme, fq-root, çalışan/disk/yedek hash üçlüsü). Test: `bash tests/maintain-smoke.sh` (16 offline senaryo, fake-ssh remote bloğu gerçekten çalıştırır). Canlı çalıştırma + restore hâlâ DENENMEDİ.
+- Düzeltme turu 2 (2026-09-06, canlı yok): busy ps/fuser hataları fail-closed (idle gibi davranmaz), recheck onayın SONRASINA alındı, remote `bash -c` zorunlu (quoting %q), yedek dizin-bazlı (/usr/local/etc/xray, apt.conf.d, sshd_config.d, xray.service.d; üye+dizin doğrulamalı), unattended log atıldı. Test 20 senaryo + mutasyon kontrolü (onay kapısı sökülünce T5 FAIL verir).
 
 - Kullanım (yerel PC'den, manuel): `./maintain.sh <ssh-dest>` (örn. `./maintain.sh demir@<sunucu>`). IP/kimlik repoya yazılmaz; strict host verification; `sudo -n` yoksa fail-fast. Test: `bash tests/maintain-smoke.sh` (offline fake-ssh).
 - Politika: otomatik güncelleme KAPALI hedeflenir (apt-daily/apt-daily-upgrade timer disable + `99-disable-auto-upgrades` Periodic override). `apt-get update` ve `upgrade` yalnızca açık onayla, simülasyon gösterilerek; `-y/full-upgrade/autoremove` YOK, configler korunur (`--force-confold`), restart uyarısı var. Timer/cron kurulmaz, otomatik reboot YOK.
