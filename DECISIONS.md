@@ -158,3 +158,8 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
   MERGE YOK (fayda yok). Branch duruyor.
 - Ders: lab portları FW'de allow'lu (10.200.0.0/30); yeni test portu açılınca
   kontrol edilecek ilk yer firewall.
+
+## Production (2026-09-06): SADECE stable
+
+- Lab komple söküldü (unitler, helperlar, sim, /tmp + /var/tmp artıkları).
+- Dinleyen: :443 live + :22 + local DNS. Yedekler duruyor (stock + trimmed-prev).
