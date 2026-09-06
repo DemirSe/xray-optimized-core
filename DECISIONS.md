@@ -98,3 +98,10 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 - Binary 400d51d (CI artifact, sha doğrulamalı). Yedek: xray.trimmed-prev (+stock).
 - Forward doğrulandı. Rollback: stop + geri kopyala + start.
+
+## A/B/C turu sonucu (2026-09-06): değişiklik YOK
+
+- A GOGC 20vs100 fırtına: 34.6 / 37.1 / 39.4 (A-B-A) — gürültü, kazanan yok. 20 kalıyor.
+- B bytespool: tier'lar buf.Size ile hizalı (8K tam), 16KB→32K firesi hacimde önemsiz.
+- C Reality resume: upstream'de yok + "not planned" kapatılmış; client desteği de yok.
+  shortId zaten optimal (16-hex). Yapılacak iş yok.
