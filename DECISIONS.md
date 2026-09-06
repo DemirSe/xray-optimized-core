@@ -64,3 +64,13 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - HTTPS iç-trafik: splice (3927 çağrı/ölçüm), **306MB/s @ %11 CPU**.
 - Gerçek kullanıcı trafiği (WhatsApp/HTTPS) zaten splice yolunda — ek ayar YOK,
   latency maliyeti YOK. Önceki 190MB/s tavanı non-TLS yolunmuş.
+
+## 1GB/s sorusunun cevabı (2026-09-06, lab)
+
+- Loopback tavan ~300-350MB/s (tek-conn 347, 4-conn agg 309). BBR/CUBIC fark etmez.
+- Sınırlayıcı: TOPLAM CPU %100 (tek çekirdek; srv+cli+python+curl+softirq toplamı).
+  Tek prosese bakınca düşük görünüyordu (%12), yanılgıydı — kutunun tamamı dolu.
+- Daha fazlası = daha çok çekirdek (büyük VPS) veya bayt-başı daha az iş.
+  İkisi de latency'yi ilgilendirmez (farklı eksen).
+- Pratik not: gerçek-hat en hızlı ölçüm ~500Mbit (60MB/s) — tavanın 5'te 1'i.
+  Bu tavan hiç dokunulmayacak.
