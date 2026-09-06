@@ -55,3 +55,12 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - Pratik hüküm: gerçek-hat/sim hiçbir zaman bu tavana ulaşamaz (ağ önce kapsar:
   sim'de 12Mbit, gerçek mobilde ~500Mbit). 3 kullanıcı için headroom devasa.
   Yapılacak tuning YOK.
+
+## Splice bulgusu (2026-09-06, lab, strace kanıtlı)
+
+- Vision zero-copy (splice) SADECE iç-trafik TLS ise devreye giriyor
+  (proxy.go: direct-copy kapısı `IsTLS && TlsApplicationDataStart`).
+- HTTP iç-trafik: userspace kopya, tavan ~185MB/s, CPU %25+.
+- HTTPS iç-trafik: splice (3927 çağrı/ölçüm), **306MB/s @ %11 CPU**.
+- Gerçek kullanıcı trafiği (WhatsApp/HTTPS) zaten splice yolunda — ek ayar YOK,
+  latency maliyeti YOK. Önceki 190MB/s tavanı non-TLS yolunmuş.
