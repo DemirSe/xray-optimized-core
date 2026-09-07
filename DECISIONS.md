@@ -38,7 +38,7 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
   edilmedi, branch silindi. autocorking=0 + no_metrics_save=1 ETKİSİZ — geri alındı. Kalan ~200ms
   (80ms-RTT sim'de) delayed-ACK yığını; kernelde delack_min yok, per-socket QUICKACK invaziv —
   bırakıldı. Gerçek-hat RTT'si (10–30ms) ile orantılı küçülür, sorun değil.
-- Gerçek-hat testi yapılmadı (sim ≠ ISP). Bekleyen: kullanıcının Windows/Android testi + WhatsApp sesli/görüntülü.
+- Telefonda VPN bağlantısı ve WhatsApp mesajlaşması kullanıcı tarafından doğrulandı (2026-09-06). Gerçek hat performans ölçümü ve Windows testi doğrulanmadı (sim ≠ ISP). Sesli/görüntülü arama test edilmedi; kullanıcı arama testi yapmayacak, bekleyen iş değil.
 - ~~Aynı ev-NAT'ından 10 ani handshake → hashlimit geciktirir~~ GEÇERSİZ (2026-09-06: hashlimit 2026-09-05'te kaldırılmıştı — CGNAT'lı telefonu engellemişti; aktif v4+v6 + kalıcı kurallarda canlı doğrulandı, yok).
 - Upload tek-akış ~2.2Mbit (çok-akışta 9.4Mbit) — arama için yeterli, dev upload yavaş.
 - /tmp tmpfs 484MB — büyük işler /var/tmp'ye.
@@ -130,6 +130,11 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - cloud-init (50) + Netlen (99) drop-in'leri `yes` ile eziyordu. İkisi de `no` yapıldı,
   efektif `sshd -T` + key-giriş testi doğrulandı.
 
+## sshd root politikası düzeltildi (2026-09-07)
+
+- `99-netlen.conf:1` içindeki `PermitRootLogin yes`, ilk değer kazanır kuralıyla `99-no-root.conf`'u etkisiz bırakıyordu; yalnızca bu değer `no` yapıldı. Öncesinde de `AllowUsers demir` root girişini engelliyordu.
+- Yerel yedek: `~/backups/xray/ssh-root-20260907T010904Z/`. `sshd -t`, efektif root/demir politikası ve reload sonrası bağımsız yeni SSH + sudo doğrulandı; Xray PID değişmedi.
+
 ## Access-log off + fd-limit (2026-09-06)
 
 - Access log kapatıldı (kimse okumuyordu), fd soft limit 1024→65535.
@@ -163,13 +168,15 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 ## Production (2026-09-06): SADECE stable
 
 - Lab komple söküldü (unitler, helperlar, sim, /tmp + /var/tmp artıkları).
+- 2026-09-07: bağımlılığı kalmayan `filter/FW -s 10.200.0.0/30 -j ACCEPT` kuralı canlı ve kalıcı v4 kurallarından kaldırıldı. Yerel yedek: `~/backups/xray/firewall-lab-20260907T012004Z/`; fark yalnızca bu kural, v6 değişmedi, `iptables-restore --test` ve bağımsız yeni SSH+sudo geçti; Xray PID aynı.
 - Dinleyen: :443 live + :22 + local DNS. Yedekler duruyor (stock + trimmed-prev).
 
-## maintain.sh — manuel bakım (PENDING: ilk canlı çalıştırma yapılmadı)
+## maintain.sh — manuel bakım (2026-09-07: ilk canlı çalıştırma başarılı)
 
-- Düzeltme turu (2026-09-06, canlı yok): remote bloklar `set -euo pipefail`, hata gizleyen pipe/marker kalıpları kaldırıldı (dosya-başı get, entry+hash doğrulaması, apt-config dump ile efektif politika teyidi, `:443`→xray sahipliği, bbr tam-eşleşme, fq-root, çalışan/disk/yedek hash üçlüsü). Test: `bash tests/maintain-smoke.sh` (16 offline senaryo, fake-ssh remote bloğu gerçekten çalıştırır). Canlı çalıştırma + restore hâlâ DENENMEDİ.
+- Düzeltme turu (2026-09-06, canlı yok): remote bloklar `set -euo pipefail`, hata gizleyen pipe/marker kalıpları kaldırıldı (dosya-başı get, entry+hash doğrulaması, apt-config dump ile efektif politika teyidi, `:443`→xray sahipliği, bbr tam-eşleşme, fq-root, çalışan/disk/yedek hash üçlüsü). Test: `bash tests/maintain-smoke.sh` (16 offline senaryo, fake-ssh remote bloğu gerçekten çalıştırır). Bu turda canlı çalıştırılmadı; ilk canlı sonuç aşağıda. Restore DENENMEDİ.
 - Düzeltme turu 2 (2026-09-06, canlı yok): busy ps/fuser hataları fail-closed (idle gibi davranmaz), recheck onayın SONRASINA alındı, remote `bash -c` zorunlu (quoting %q), yedek dizin-bazlı (/usr/local/etc/xray, apt.conf.d, sshd_config.d, xray.service.d; üye+dizin doğrulamalı), unattended log atıldı. Test 20 senaryo + mutasyon kontrolü (onay kapısı sökülünce T5 FAIL verir).
 
 - Kullanım (yerel PC'den, manuel): `./maintain.sh <ssh-dest>` (örn. `./maintain.sh demir@<sunucu>`). IP/kimlik repoya yazılmaz; strict host verification; `sudo -n` yoksa fail-fast. Test: `bash tests/maintain-smoke.sh` (offline fake-ssh).
-- Politika: otomatik güncelleme KAPALI hedeflenir (apt-daily/apt-daily-upgrade timer disable + `99-disable-auto-upgrades` Periodic override). `apt-get update` ve `upgrade` yalnızca açık onayla, simülasyon gösterilerek; `-y/full-upgrade/autoremove` YOK, configler korunur (`--force-confold`), restart uyarısı var. Timer/cron kurulmaz, otomatik reboot YOK.
+- Politika: otomatik APT güncellemesi KAPALI (2026-09-07: apt-daily/apt-daily-upgrade timerları disabled+inactive; `99-disable-auto-upgrades` ile dört Periodic alanı efektif 0 doğrulandı). `apt-get update` ve `upgrade` yalnızca açık onayla, simülasyon gösterilerek; `-y/full-upgrade/autoremove` YOK, configler korunur (`--force-confold`), restart uyarısı var. Timer/cron kurulmaz, otomatik reboot YOK.
+- İlk canlı koşu (2026-09-07): yalnızca yedek + otomatik APT kapatma; `apt-get update` reddedildi, paket kurulumu/reboot yapılmadı. `~/backups/xray/20260907T005504Z/` (26M) COMPLETE, arşiv/hash/700-600 izin kontrolleri geçti. Xray `400d51d`, :443 sahipliği, BBR/fq ve kernel `.107` sağlıklı. Otomatik reboot efektif unset/default false; shutdown helper değiştirilmedi.
 - Yerel yedek: `~/backups/xray/<TS>Z/` (Git dışı, şifresiz, 700/600, umask 077). Kapsam: config+anahtarlar, sysctl, unit/drop-in, SSH drop-in, firewall (kalıcı+canlı), 3 binary, APT politikası. Sınırlama: tam imaj DEĞİL, restore DENENMEDİ; kısmi yedek INCOMPLETE işaretli kalır, hata sonrası ilerleme yok.

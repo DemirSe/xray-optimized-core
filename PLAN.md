@@ -25,11 +25,11 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 0. Sabit dest'i doğrula: `xray tls ping whatsapp.net:443`. Başka dest/SNI seçilmez.
 1. Server: resmi XTLS/Xray-install, VLESS `xtls-rprx-vision`, `target=whatsapp.net:443`, `serverNames=[whatsapp.net]`, shortId random 8byte, fp=chrome, 443 TCP dinle, ufw/firewall aç, BBR aç.
 2. Tek vless:// link üret (uuid, pbk, sid, sni, fp=chrome, flow=vision).
-3. Client 3 OS: Hiddify, TUN ON + System Proxy ON, Strict Route ON, IPv4-only (başta), Remote DNS tcp://1.1.1.1, UDP enabled. WhatsApp bypass YOK (önce içinden dene).
-4. Test: ifconfig.me, dnsleaktest, WhatsApp mesaj + sesli + görüntülü, UDP test, speedtest. Bozulursa fallback: WhatsApp per-app bypass.
+3. Client 3 OS: Hiddify, TUN ON + System Proxy ON, Strict Route ON, IPv4-only (başta), Remote DNS tcp://1.1.1.1, UDP enabled. WhatsApp bypass YOK; her zaman tünel içinde.
+4. Doğrulanan: telefonda VPN bağlantısı ve WhatsApp mesajlaşması. Sesli/görüntülü arama test edilmedi; kullanıcı arama testi yapmayacak. Gerçek hat performans ölçümü ve diğer istemci testleri doğrulanmış sayılmaz.
 
-## Fallback
-- WhatsApp call kötü ise: Android per-app bypass (Bypass mode + WhatsApp seç), Win/Lin route rule `whatsapp.net,whatsapp.com direct`.
+## Kesinti politikası
+- WhatsApp dahil bypass/direct kuralı eklenmez; sorunlar tünel içinde teşhis edilir.
 - Dest bozulursa: başka hedefe geçilmez; yalnızca `whatsapp.net` erişimi teşhis edilir ve düzelmesi beklenir.
 
 ## Sonraki adım
