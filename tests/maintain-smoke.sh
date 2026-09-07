@@ -63,8 +63,16 @@ mkstub tc <<'EOF'
 EOF
 mkstub ss <<'EOF'
 #!/usr/bin/env bash
-[ "${SS_MODE:-xray}" = xray ] && echo 'LISTEN 0 0 *:443 users:(("xray",pid=1,fd=3))' \
-  || echo 'LISTEN 0 0 *:443 users:(("other",pid=9,fd=3))'
+case "${SS_MODE:-xray}" in
+  xray) echo 'LISTEN 0 0 *:443 users:(("xray",pid=1,fd=3))';;
+  other) echo 'LISTEN 0 0 *:443 users:(("other",pid=9,fd=3))';;
+  mixed-lines) printf '%s\n' 'LISTEN 0 0 0.0.0.0:443 users:(("xray",pid=1,fd=3))' 'LISTEN 0 0 [::]:443 users:(("other",pid=9,fd=3))';;
+  mixed-sameline) echo 'LISTEN 0 0 *:443 users:(("xray",pid=1,fd=3),("other",pid=9,fd=3))';;
+  allxray) printf '%s\n' 'LISTEN 0 0 0.0.0.0:443 users:(("xray",pid=1,fd=3))' 'LISTEN 0 0 [::]:443 users:(("xray",pid=7,fd=3))';;
+  nouser) echo 'LISTEN 0 0 *:443 *:*';;
+  prefix) echo 'LISTEN 0 0 *:443 users:(("xray-helper",pid=9,fd=3))';;
+  *) echo "stub-ss: unknown SS_MODE $SS_MODE" >&2; exit 2;;
+esac
 EOF
 mkstub sshd <<'EOF'
 #!/usr/bin/env bash
@@ -247,6 +255,21 @@ printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
 newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=other
 printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
 [ $rc -ne 0 ] || fail "T11 foreign-:443 exited 0"; pass "T11 :443 ownership enforced"
+newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=mixed-lines
+printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
+[ $rc -ne 0 ] || fail "T11b mixed-lines exited 0"; pass "T11b mixed :443 lines rejected"
+newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=mixed-sameline
+printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
+[ $rc -ne 0 ] || fail "T11c same-line mixed owner exited 0"; pass "T11c same-line mixed owner rejected"
+newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=nouser
+printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
+[ $rc -ne 0 ] || fail "T11d unknown-owner exited 0"; pass "T11d ownerless :443 rejected"
+newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=prefix
+printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
+[ $rc -ne 0 ] || fail "T11e xray-prefix exited 0"; pass "T11e xray-prefix name rejected"
+newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive SS_MODE=allxray
+printf 'y\nn\n' | ./maintain.sh fake-dest >"$T/out.log" 2>&1; rc=$?
+[ $rc -eq 0 ] || fail "T11f all-xray v4+v6 failed"; pass "T11f all-xray v4+v6 accepted"
 
 # T12: update runs (strict error mode), upgrade declined -> no upgrade.
 newcase; export TIMER_ENABLED=disabled TIMER_ACTIVE=inactive
