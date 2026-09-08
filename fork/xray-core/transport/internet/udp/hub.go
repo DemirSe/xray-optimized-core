@@ -2,6 +2,7 @@ package udp
 
 import (
 	"context"
+	"sync"
 
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
@@ -30,6 +31,13 @@ type Hub struct {
 	cache        chan *udp.Packet
 	capacity     int
 	recvOrigDest bool
+}
+
+// oobPool holds 256-byte out-of-band scratch buffers, one per running Hub.
+var oobPool = sync.Pool{
+	New: func() any {
+		return make([]byte, 256)
+	},
 }
 
 func ListenUDP(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, options ...HubOption) (*Hub, error) {
@@ -78,6 +86,7 @@ func ListenUDP(ctx context.Context, address net.Address, port net.Port, streamSe
 
 	errors.LogInfo(ctx, "listening UDP on ", address, ":", port)
 	hub.udpConn, _ = hub.conn.(*net.UDPConn)
+	// ponytail: not pooled — closed on shutdown and ranged over by receivers; closed chans can't be reused.
 	hub.cache = make(chan *udp.Packet, hub.capacity)
 
 	go hub.start()
@@ -101,7 +110,11 @@ func (h *Hub) start() {
 	c := h.cache
 	defer close(c)
 
-	oobBytes := make([]byte, 256)
+	oobBytes := oobPool.Get().([]byte)
+	defer func() {
+		clear(oobBytes)
+		oobPool.Put(oobBytes)
+	}()
 
 	for {
 		buffer := buf.New()

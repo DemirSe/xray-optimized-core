@@ -38,6 +38,7 @@ func OptionsFromContext(ctx context.Context) []Option {
 
 	bp := policy.BufferPolicyFromContext(ctx)
 	if bp.PerConnection >= 0 {
+		// ponytail: not pooled — escapes to callers; pooling needs caller-side release, costlier than this alloc.
 		opt = append(opt, WithSizeLimit(bp.PerConnection))
 	} else {
 		opt = append(opt, WithoutSizeLimit())
