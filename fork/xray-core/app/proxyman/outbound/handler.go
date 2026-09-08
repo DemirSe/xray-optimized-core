@@ -332,7 +332,12 @@ func (h *Handler) SetOutboundGateway(ctx context.Context, ob *session.Outbound) 
 		domain = h.senderSettings.Via.GetDomain()
 		switch {
 		case h.senderSettings.ViaCidr != "":
-			ob.Gateway = ParseRandomIP(addr, h.senderSettings.ViaCidr)
+			gateway, err := ParseRandomIP(addr, h.senderSettings.ViaCidr)
+			if err != nil {
+				errors.LogWarning(ctx, "invalid viaCidr: ", err)
+			} else {
+				ob.Gateway = gateway
+			}
 
 		case domain == "origin":
 			if inbound := session.InboundFromContext(ctx); inbound != nil {
@@ -395,9 +400,16 @@ func (h *Handler) ProxySettings() *serial.TypedMessage {
 	return serial.ToTypedMessage(h.proxyConfig)
 }
 
-func ParseRandomIP(addr net.Address, prefix string) net.Address {
+func ParseRandomIP(addr net.Address, prefix string) (net.Address, error) {
+	// ponytail: domain/nil Via has nil IP(); ParseCIDR failure used to nil-deref below
+	if addr == nil || !addr.Family().IsIP() || addr.IP() == nil {
+		return nil, errors.New("viaCidr requires an IP address in \"via\"")
+	}
 
-	_, ipnet, _ := net.ParseCIDR(addr.IP().String() + "/" + prefix)
+	_, ipnet, err := net.ParseCIDR(addr.IP().String() + "/" + prefix)
+	if err != nil {
+		return nil, err
+	}
 
 	ones, bits := ipnet.Mask.Size()
 	subnetSize := new(big.Int).Lsh(big.NewInt(1), uint(bits-ones))
@@ -411,5 +423,5 @@ func ParseRandomIP(addr net.Address, prefix string) net.Address {
 	padded := make([]byte, len(ipnet.IP))
 	copy(padded[len(padded)-len(rndBytes):], rndBytes)
 
-	return net.ParseAddress(net.IP(padded).String())
+	return net.ParseAddress(net.IP(padded).String()), nil
 }
