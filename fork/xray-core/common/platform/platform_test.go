@@ -45,7 +45,9 @@ func TestEnvFlag(t *testing.T) {
 
 func TestGetAssetLocation(t *testing.T) {
 	exec, err := os.Executable()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	loc := GetAssetLocation("t")
 	if filepath.Dir(loc) != filepath.Dir(exec) {

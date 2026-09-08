@@ -33,10 +33,14 @@ func TestStatsWriter(t *testing.T) {
 	}
 
 	mb := buf.MergeBytes(nil, []byte("abcd"))
-	common.Must(writer.WriteMultiBuffer(mb))
+	if err := common.Must(writer.WriteMultiBuffer(mb)); err != nil {
+		t.Fatal(err)
+	}
 
 	mb = buf.MergeBytes(nil, []byte("efg"))
-	common.Must(writer.WriteMultiBuffer(mb))
+	if err := common.Must(writer.WriteMultiBuffer(mb)); err != nil {
+		t.Fatal(err)
+	}
 
 	if c.Value() != 7 {
 		t.Fatal("unexpected counter value. want 7, but got ", c.Value())

@@ -47,23 +47,35 @@ func TestReaderWriter(t *testing.T) {
 		return writer.WriteMultiBuffer(buf.MultiBuffer{b})
 	}
 
-	common.Must(writePayload(writer, 'a', 'b', 'c', 'd'))
-	common.Must(writePayload(writer2))
+	if err := common.Must(writePayload(writer, 'a', 'b', 'c', 'd')); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(writePayload(writer2)); err != nil {
+		t.Fatal(err)
+	}
 
-	common.Must(writePayload(writer, 'e', 'f', 'g', 'h'))
-	common.Must(writePayload(writer3, 'x'))
+	if err := common.Must(writePayload(writer, 'e', 'f', 'g', 'h')); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(writePayload(writer3, 'x')); err != nil {
+		t.Fatal(err)
+	}
 
 	writer.Close()
 	writer3.Close()
 
-	common.Must(writePayload(writer2, 'y'))
+	if err := common.Must(writePayload(writer2, 'y')); err != nil {
+		t.Fatal(err)
+	}
 	writer2.Close()
 
 	bytesReader := &buf.BufferedReader{Reader: pReader}
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     1,
 			SessionStatus: SessionStatusNew,
@@ -74,7 +86,9 @@ func TestReaderWriter(t *testing.T) {
 		}
 
 		data, err := readAll(NewStreamReader(bytesReader))
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if s := data.String(); s != "abcd" {
 			t.Error("data: ", s)
 		}
@@ -82,7 +96,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionStatus: SessionStatusNew,
 			SessionID:     2,
@@ -95,7 +111,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     1,
 			SessionStatus: SessionStatusKeep,
@@ -105,7 +123,9 @@ func TestReaderWriter(t *testing.T) {
 		}
 
 		data, err := readAll(NewStreamReader(bytesReader))
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if s := data.String(); s != "efgh" {
 			t.Error("data: ", s)
 		}
@@ -113,7 +133,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     3,
 			SessionStatus: SessionStatusNew,
@@ -124,7 +146,9 @@ func TestReaderWriter(t *testing.T) {
 		}
 
 		data, err := readAll(NewStreamReader(bytesReader))
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if s := data.String(); s != "x" {
 			t.Error("data: ", s)
 		}
@@ -132,7 +156,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     1,
 			SessionStatus: SessionStatusEnd,
@@ -144,7 +170,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     3,
 			SessionStatus: SessionStatusEnd,
@@ -156,7 +184,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     2,
 			SessionStatus: SessionStatusKeep,
@@ -166,7 +196,9 @@ func TestReaderWriter(t *testing.T) {
 		}
 
 		data, err := readAll(NewStreamReader(bytesReader))
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if s := data.String(); s != "y" {
 			t.Error("data: ", s)
 		}
@@ -174,7 +206,9 @@ func TestReaderWriter(t *testing.T) {
 
 	{
 		var meta FrameMetadata
-		common.Must(meta.Unmarshal(bytesReader, false))
+		if err := common.Must(meta.Unmarshal(bytesReader, false)); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(meta, FrameMetadata{
 			SessionID:     2,
 			SessionStatus: SessionStatusEnd,

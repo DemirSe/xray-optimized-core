@@ -14,11 +14,15 @@ import (
 func TestDialWithLocalAddr(t *testing.T) {
 	server := &tcp.Server{}
 	dest, err := server.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer server.Close()
 
 	conn, err := DialSystem(context.Background(), net.TCPDestination(net.LocalHostIP, dest.Port), nil)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if r := cmp.Diff(conn.RemoteAddr().String(), "127.0.0.1:"+dest.Port.String()); r != "" {
 		t.Error(r)
 	}

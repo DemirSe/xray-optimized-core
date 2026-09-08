@@ -103,7 +103,9 @@ func TestMultiBufferReadAllToByte(t *testing.T) {
 		common.Must2(io.ReadFull(rand.Reader, lb))
 		rd := bytes.NewBuffer(lb)
 		b, err := ReadAllToBytes(rd)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 
 		if l := len(b); l != 8*1024 {
 			t.Error("unexpected length from ReadAllToBytes", l)
@@ -112,14 +114,20 @@ func TestMultiBufferReadAllToByte(t *testing.T) {
 	{
 		const dat = "data/test_MultiBufferReadAllToByte.dat"
 		f, err := os.Open(dat)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 
 		buf2, err := ReadAllToBytes(f)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		f.Close()
 
 		cnt, err := os.ReadFile(dat)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 
 		if d := cmp.Diff(buf2, cnt); d != "" {
 			t.Error("fail to read from file: ", d)
@@ -133,7 +141,9 @@ func TestMultiBufferCopy(t *testing.T) {
 	reader := bytes.NewBuffer(lb)
 
 	mb, err := ReadFrom(reader)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	lbdst := make([]byte, 8*1024)
 	mb.Copy(lbdst)

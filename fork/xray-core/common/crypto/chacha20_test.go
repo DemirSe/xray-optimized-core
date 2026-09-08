@@ -12,7 +12,9 @@ import (
 
 func mustDecodeHex(s string) []byte {
 	b, err := hex.DecodeString(s)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		panic(err)
+	}
 	return b
 }
 

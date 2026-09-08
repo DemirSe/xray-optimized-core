@@ -18,27 +18,37 @@ func TestChunkStreamIO(t *testing.T) {
 
 	b := buf.New()
 	b.WriteString("abcd")
-	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{b}))
+	if err := common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+		t.Fatal(err)
+	}
 
 	b = buf.New()
 	b.WriteString("efg")
-	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{b}))
+	if err := common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+		t.Fatal(err)
+	}
 
-	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{}))
+	if err := common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{})); err != nil {
+		t.Fatal(err)
+	}
 
 	if cache.Len() != 13 {
 		t.Fatalf("Cache length is %d, want 13", cache.Len())
 	}
 
 	mb, err := reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	if s := mb.String(); s != "abcd" {
 		t.Error("content: ", s)
 	}
 
 	mb, err = reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	if s := mb.String(); s != "efg" {
 		t.Error("content: ", s)

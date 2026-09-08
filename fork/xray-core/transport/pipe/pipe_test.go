@@ -19,14 +19,20 @@ func TestPipeReadWrite(t *testing.T) {
 
 	b := buf.New()
 	b.WriteString("abcd")
-	common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}))
+	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+		t.Fatal(err)
+	}
 
 	b2 := buf.New()
 	b2.WriteString("efg")
-	common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b2}))
+	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b2})); err != nil {
+		t.Fatal(err)
+	}
 
 	rb, err := pReader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if r := cmp.Diff(rb.String(), "abcdefg"); r != "" {
 		t.Error(r)
 	}
@@ -37,7 +43,9 @@ func TestPipeInterrupt(t *testing.T) {
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	b.Write(payload)
-	common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}))
+	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+		t.Fatal(err)
+	}
 	pWriter.Interrupt()
 
 	rb, err := pReader.ReadMultiBuffer()
@@ -54,11 +62,17 @@ func TestPipeClose(t *testing.T) {
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	common.Must2(b.Write(payload))
-	common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}))
-	common.Must(pWriter.Close())
+	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(pWriter.Close()); err != nil {
+		t.Fatal(err)
+	}
 
 	rb, err := pReader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if rb.String() != string(payload) {
 		t.Fatal("expect content ", string(payload), " but actually ", rb.String())
 	}
@@ -76,7 +90,9 @@ func TestPipeLimitZero(t *testing.T) {
 	pReader, pWriter := New(WithSizeLimit(0))
 	bb := buf.New()
 	common.Must2(bb.Write([]byte{'a', 'b'}))
-	common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{bb}))
+	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{bb})); err != nil {
+		t.Fatal(err)
+	}
 
 	var errg errgroup.Group
 	errg.Go(func() error {
@@ -122,7 +138,9 @@ func TestPipeWriteMultiThread(t *testing.T) {
 	errg.Wait()
 
 	b, err := pReader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if r := cmp.Diff(b[0].Bytes(), []byte{'a', 'b', 'c', 'd'}); r != "" {
 		t.Error(r)
 	}
@@ -145,9 +163,13 @@ func BenchmarkPipeReadWrite(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		common.Must(writer.WriteMultiBuffer(c))
+		if err := common.Must(writer.WriteMultiBuffer(c)); err != nil {
+			b.Fatal(err)
+		}
 		d, err := reader.ReadMultiBuffer()
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		c = d
 	}
 }

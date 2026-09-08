@@ -51,7 +51,9 @@ func BenchmarkMarchGroup(b *testing.B) {
 	g := new(MatcherGroup)
 	for i := 1; i <= 1024; i++ {
 		m, err := Domain.New(strconv.Itoa(i) + ".example.com")
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		g.Add(m)
 	}
 

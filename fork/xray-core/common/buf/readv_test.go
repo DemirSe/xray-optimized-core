@@ -22,11 +22,15 @@ func TestReadvReader(t *testing.T) {
 		},
 	}
 	dest, err := tcpServer.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer tcpServer.Close()
 
 	conn, err := net.Dial("tcp", dest.NetAddr())
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	const size = 8192
@@ -48,7 +52,9 @@ func TestReadvReader(t *testing.T) {
 	}()
 
 	rawConn, err := conn.(*net.TCPConn).SyscallConn()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	reader := NewReadVReader(conn, rawConn, nil)
 	var rmb MultiBuffer

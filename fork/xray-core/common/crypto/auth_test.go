@@ -35,11 +35,15 @@ func TestAuthenticationReaderWriter(t *testing.T) {
 		AdditionalDataGenerator: GenerateEmptyBytes(),
 	}, PlainChunkSizeParser{}, cache, protocol.TransferTypeStream, nil)
 
-	common.Must(writer.WriteMultiBuffer(payload))
+	if err := common.Must(writer.WriteMultiBuffer(payload)); err != nil {
+		t.Fatal(err)
+	}
 	if cache.Len() <= 1024*80 {
 		t.Error("cache len: ", cache.Len())
 	}
-	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{}))
+	if err := common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{})); err != nil {
+		t.Fatal(err)
+	}
 
 	reader := NewAuthenticationReader(&AEADAuthenticator{
 		AEAD:                    aead,
@@ -51,7 +55,9 @@ func TestAuthenticationReaderWriter(t *testing.T) {
 
 	for mb.Len() < payloadSize {
 		mb2, err := reader.ReadMultiBuffer()
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 
 		mb, _ = buf.MergeMulti(mb, mb2)
 	}
@@ -97,12 +103,16 @@ func TestAuthenticationReaderWriterPacket(t *testing.T) {
 	pb2.Write([]byte("efgh"))
 	payload = append(payload, pb2)
 
-	common.Must(writer.WriteMultiBuffer(payload))
+	if err := common.Must(writer.WriteMultiBuffer(payload)); err != nil {
+		t.Fatal(err)
+	}
 	if cache.Len() == 0 {
 		t.Error("cache len: ", cache.Len())
 	}
 
-	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{}))
+	if err := common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{})); err != nil {
+		t.Fatal(err)
+	}
 
 	reader := NewAuthenticationReader(&AEADAuthenticator{
 		AEAD:                    aead,
@@ -111,7 +121,9 @@ func TestAuthenticationReaderWriterPacket(t *testing.T) {
 	}, PlainChunkSizeParser{}, cache, protocol.TransferTypePacket, nil)
 
 	mb, err := reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	mb, b1 := buf.SplitFirst(mb)
 	if b1.String() != "abcd" {

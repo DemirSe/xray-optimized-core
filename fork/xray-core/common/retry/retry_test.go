@@ -18,7 +18,9 @@ func TestNoRetry(t *testing.T) {
 	})
 	endTime := time.Now().Unix()
 
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if endTime < startTime {
 		t.Error("endTime < startTime: ", startTime, " -> ", endTime)
 	}
@@ -36,7 +38,9 @@ func TestRetryOnce(t *testing.T) {
 	})
 	duration := time.Since(startTime)
 
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if v := int64(duration / time.Millisecond); v < 900 {
 		t.Error("duration: ", v)
 	}
@@ -54,7 +58,9 @@ func TestRetryMultiple(t *testing.T) {
 	})
 	duration := time.Since(startTime)
 
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if v := int64(duration / time.Millisecond); v < 4900 {
 		t.Error("duration: ", v)
 	}

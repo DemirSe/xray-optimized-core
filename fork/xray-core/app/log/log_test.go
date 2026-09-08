@@ -32,9 +32,13 @@ func TestCustomLogHandler(t *testing.T) {
 		ErrorLogType:  log.LogType_Console,
 		AccessLogType: log.LogType_None,
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
-	common.Must(logger.Start())
+	if err := common.Must(logger.Start()); err != nil {
+		t.Fatal(err)
+	}
 
 	clog.Record(&clog.GeneralMessage{
 		Severity: clog.Severity_Debug,
@@ -49,7 +53,9 @@ func TestCustomLogHandler(t *testing.T) {
 		t.Fatal("expected '[Debug] test', but actually ", loggedValue[1])
 	}
 
-	common.Must(logger.Close())
+	if err := common.Must(logger.Close()); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestMaskAddress(t *testing.T) {

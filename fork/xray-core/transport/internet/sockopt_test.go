@@ -18,7 +18,9 @@ func TestTCPFastOpen(t *testing.T) {
 		},
 	}
 	dest, err := tcpServer.StartContext(context.Background(), &SocketConfig{Tfo: 256})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer tcpServer.Close()
 
 	ctx := context.Background()
@@ -26,11 +28,15 @@ func TestTCPFastOpen(t *testing.T) {
 	conn, err := dialer.Dial(ctx, nil, dest, &SocketConfig{
 		Tfo: 1,
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	_, err = conn.Write([]byte("abcd"))
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	b := buf.New()
 	common.Must2(b.ReadFrom(conn))

@@ -48,7 +48,9 @@ text 2*`},
 
 		actual := make([]byte, 1024)
 		n, err := reader.Read(actual)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if r := cmp.Diff(string(actual[:n]), testCase.output); r != "" {
 			t.Error(r)
 		}

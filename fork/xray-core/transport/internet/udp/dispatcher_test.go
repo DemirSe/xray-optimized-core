@@ -52,7 +52,10 @@ func TestSameDestinationDispatching(t *testing.T) {
 				break
 			}
 			err = downlinkWriter.WriteMultiBuffer(data)
-			common.Must(err)
+			if err := common.Must(err); err != nil {
+				t.Error(err)
+				return
+			}
 		}
 	}()
 

@@ -13,26 +13,38 @@ import (
 
 func TestFileLogger(t *testing.T) {
 	f, err := os.CreateTemp("", "vtest")
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	path := f.Name()
-	common.Must(f.Close())
+	if err := common.Must(f.Close()); err != nil {
+		t.Fatal(err)
+	}
 	defer os.Remove(path)
 
 	creator, err := CreateFileLogWriter(path)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	handler := NewLogger(creator)
 	handler.Handle(&GeneralMessage{Content: "Test Log"})
 	time.Sleep(2 * time.Second)
 
-	common.Must(common.Close(handler))
+	if err := common.Must(common.Close(handler)); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err = os.Open(path)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer f.Close()
 
 	b, err := buf.ReadAllToBytes(f)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(string(b), "Test Log") {
 		t.Fatal("Expect log text contains 'Test Log', but actually: ", string(b))
 	}

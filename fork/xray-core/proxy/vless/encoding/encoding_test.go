@@ -15,7 +15,9 @@ import (
 
 func toAccount(a *vless.Account) protocol.Account {
 	account, err := a.AsAccount()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		panic(err)
+	}
 	return account
 }
 
@@ -40,13 +42,17 @@ func TestRequestSerialization(t *testing.T) {
 	expectedAddons := &Addons{}
 
 	buffer := buf.StackNew()
-	common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons))
+	if err := common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons)); err != nil {
+		t.Fatal(err)
+	}
 
 	Validator := new(vless.MemoryValidator)
 	Validator.Add(user)
 
 	_, actualRequest, actualAddons, _, err := DecodeRequestHeader(false, nil, &buffer, Validator)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
 		t.Error(r)
@@ -81,7 +87,9 @@ func TestInvalidRequest(t *testing.T) {
 	expectedAddons := &Addons{}
 
 	buffer := buf.StackNew()
-	common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons))
+	if err := common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons)); err != nil {
+		t.Fatal(err)
+	}
 
 	Validator := new(vless.MemoryValidator)
 	Validator.Add(user)
@@ -112,13 +120,17 @@ func TestMuxRequest(t *testing.T) {
 	expectedAddons := &Addons{}
 
 	buffer := buf.StackNew()
-	common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons))
+	if err := common.Must(EncodeRequestHeader(&buffer, expectedRequest, expectedAddons)); err != nil {
+		t.Fatal(err)
+	}
 
 	Validator := new(vless.MemoryValidator)
 	Validator.Add(user)
 
 	_, actualRequest, actualAddons, _, err := DecodeRequestHeader(false, nil, &buffer, Validator)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
 		t.Error(r)

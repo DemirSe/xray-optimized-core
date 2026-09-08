@@ -23,8 +23,12 @@ func TestWriter(t *testing.T) {
 
 	writer := NewBufferedWriter(NewWriter(writeBuffer))
 	writer.SetBuffered(false)
-	common.Must(writer.WriteMultiBuffer(MultiBuffer{lb}))
-	common.Must(writer.Flush())
+	if err := common.Must(writer.WriteMultiBuffer(MultiBuffer{lb})); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(writer.Flush()); err != nil {
+		t.Fatal(err)
+	}
 
 	if r := cmp.Diff(expectedBytes, writeBuffer.Bytes()); r != "" {
 		t.Error(r)
@@ -46,7 +50,9 @@ func TestBytesWriterReadFrom(t *testing.T) {
 	}
 
 	mb, err := pReader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if mb.Len() != size {
 		t.Fatal("unexpected size read: ", mb.Len())
 	}
@@ -57,7 +63,9 @@ func TestDiscardBytes(t *testing.T) {
 	common.Must2(b.ReadFullFrom(rand.Reader, Size))
 
 	nBytes, err := io.Copy(DiscardBytes, b)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if nBytes != Size {
 		t.Error("copy size: ", nBytes)
 	}
@@ -70,7 +78,9 @@ func TestDiscardBytesMultiBuffer(t *testing.T) {
 
 	r := NewReader(buffer)
 	nBytes, err := io.Copy(DiscardBytes, &BufferedReader{Reader: r})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if nBytes != size {
 		t.Error("copy size: ", nBytes)
 	}

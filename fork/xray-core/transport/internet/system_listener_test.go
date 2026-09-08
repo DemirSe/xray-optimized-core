@@ -14,18 +14,24 @@ import (
 func TestRegisterListenerController(t *testing.T) {
 	var gotFd uintptr
 
-	common.Must(internet.RegisterListenerController(func(network, address string, conn syscall.RawConn) error {
+	if err := common.Must(internet.RegisterListenerController(func(network, address string, conn syscall.RawConn) error {
 		return control.Raw(conn, func(fd uintptr) error {
 			gotFd = fd
 			return nil
 		})
-	}))
+	})); err != nil {
+		t.Fatal(err)
+	}
 
 	conn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
 		IP: net.IPv4zero,
 	}, nil)
-	common.Must(err)
-	common.Must(conn.Close())
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(conn.Close()); err != nil {
+		t.Fatal(err)
+	}
 
 	if gotFd == 0 {
 		t.Error("expected none-zero fd, but actually 0")

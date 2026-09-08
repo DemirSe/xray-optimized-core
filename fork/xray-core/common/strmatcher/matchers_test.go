@@ -65,7 +65,9 @@ func TestMatcher(t *testing.T) {
 	}
 	for _, test := range cases {
 		matcher, err := test.mType.New(test.pattern)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if m := matcher.Match(test.input); m != test.output {
 			t.Error("unexpected output: ", m, " for test case ", test)
 		}

@@ -134,7 +134,9 @@ func TestAddressWriting(t *testing.T) {
 				t.Error("Expect error but nil")
 			}
 		} else {
-			common.Must(err)
+			if err := common.Must(err); err != nil {
+				t.Fatal(err)
+			}
 			if diff := cmp.Diff(tc.Bytes, b.Bytes()); diff != "" {
 				t.Error(err)
 			}
@@ -156,7 +158,9 @@ func BenchmarkAddressReadingIPv4(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, err := parser.ReadAddressPort(cache, payload)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		cache.Clear()
 		payload.Clear()
 		payload.Extend(int32(len(raw)))
@@ -177,7 +181,9 @@ func BenchmarkAddressReadingIPv6(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, err := parser.ReadAddressPort(cache, payload)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		cache.Clear()
 		payload.Clear()
 		payload.Extend(int32(len(raw)))
@@ -198,7 +204,9 @@ func BenchmarkAddressReadingDomain(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, err := parser.ReadAddressPort(cache, payload)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		cache.Clear()
 		payload.Clear()
 		payload.Extend(int32(len(raw)))
@@ -212,7 +220,9 @@ func BenchmarkAddressWritingIPv4(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		common.Must(parser.WriteAddressPort(writer, net.LocalHostIP, net.Port(80)))
+		if err := common.Must(parser.WriteAddressPort(writer, net.LocalHostIP, net.Port(80))); err != nil {
+			b.Fatal(err)
+		}
 		writer.Clear()
 	}
 }
@@ -224,7 +234,9 @@ func BenchmarkAddressWritingIPv6(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		common.Must(parser.WriteAddressPort(writer, net.LocalHostIPv6, net.Port(80)))
+		if err := common.Must(parser.WriteAddressPort(writer, net.LocalHostIPv6, net.Port(80))); err != nil {
+			b.Fatal(err)
+		}
 		writer.Clear()
 	}
 }
@@ -236,7 +248,9 @@ func BenchmarkAddressWritingDomain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		common.Must(parser.WriteAddressPort(writer, net.DomainAddress("www.example.com"), net.Port(80)))
+		if err := common.Must(parser.WriteAddressPort(writer, net.DomainAddress("www.example.com"), net.Port(80))); err != nil {
+			b.Fatal(err)
+		}
 		writer.Clear()
 	}
 }

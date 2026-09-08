@@ -37,7 +37,9 @@ Accept-Language: de,en;q=0.7,en-us;q=0.3
 `
 	b := bufio.NewReader(strings.NewReader(rawRequest))
 	req, err := http.ReadRequest(b)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	headers := []struct {
 		Key   string
 		Value string

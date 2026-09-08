@@ -26,10 +26,14 @@ func TestCertificateIssuing(t *testing.T) {
 	xrayCert, err := tlsConfig.GetCertificate(&gotls.ClientHelloInfo{
 		ServerName: "www.example.com",
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	x509Cert, err := x509.ParseCertificate(xrayCert.Certificate[0])
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if !x509Cert.NotAfter.After(time.Now()) {
 		t.Error("NotAfter: ", x509Cert.NotAfter)
 	}
@@ -55,10 +59,14 @@ func TestExpiredCertificate(t *testing.T) {
 	xrayCert, err := tlsConfig.GetCertificate(&gotls.ClientHelloInfo{
 		ServerName: "www.example.com",
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	x509Cert, err := x509.ParseCertificate(xrayCert.Certificate[0])
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if !x509Cert.NotAfter.After(time.Now()) {
 		t.Error("NotAfter: ", x509Cert.NotAfter)
 	}

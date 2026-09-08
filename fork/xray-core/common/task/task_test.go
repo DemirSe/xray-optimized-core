@@ -51,7 +51,9 @@ func BenchmarkExecuteOne(b *testing.B) {
 		return nil
 	}
 	for i := 0; i < b.N; i++ {
-		common.Must(Run(context.Background(), noop))
+		if err := common.Must(Run(context.Background(), noop)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -60,6 +62,8 @@ func BenchmarkExecuteTwo(b *testing.B) {
 		return nil
 	}
 	for i := 0; i < b.N; i++ {
-		common.Must(Run(context.Background(), noop, noop))
+		if err := common.Must(Run(context.Background(), noop, noop)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

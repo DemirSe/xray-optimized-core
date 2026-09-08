@@ -49,7 +49,9 @@ func TestBufferString(t *testing.T) {
 func TestBufferByte(t *testing.T) {
 	{
 		buffer := New()
-		common.Must(buffer.WriteByte('m'))
+		if err := common.Must(buffer.WriteByte('m')); err != nil {
+			t.Fatal(err)
+		}
 		if buffer.String() != "m" {
 			t.Error("expect buffer content as ", "m", " but actually ", buffer.String())
 		}
@@ -57,7 +59,9 @@ func TestBufferByte(t *testing.T) {
 	}
 	{
 		buffer := StackNew()
-		common.Must(buffer.WriteByte('n'))
+		if err := common.Must(buffer.WriteByte('n')); err != nil {
+			t.Fatal(err)
+		}
 		if buffer.String() != "n" {
 			t.Error("expect buffer content as ", "n", " but actually ", buffer.String())
 		}
@@ -139,7 +143,9 @@ func TestBufferReadFullFrom(t *testing.T) {
 	reader := bytes.NewReader(payload)
 	b := New()
 	n, err := b.ReadFullFrom(reader, 1024)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if n != 1024 {
 		t.Error("expect reading 1024 bytes, but actually ", n)
 	}

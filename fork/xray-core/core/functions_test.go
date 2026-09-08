@@ -10,6 +10,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/app/proxyman"
+	_ "github.com/xtls/xray-core/app/proxyman/inbound"
+	_ "github.com/xtls/xray-core/app/proxyman/outbound"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/serial"
@@ -41,7 +43,9 @@ func TestXrayDial(t *testing.T) {
 		MsgProcessor: xor,
 	}
 	dest, err := tcpServer.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer tcpServer.Close()
 
 	config := &core.Config{
@@ -58,14 +62,20 @@ func TestXrayDial(t *testing.T) {
 	}
 
 	cfgBytes, err := proto.Marshal(config)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	server, err := core.StartInstance("protobuf", cfgBytes)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer server.Close()
 
 	conn, err := core.Dial(context.Background(), server, dest)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	const size = 10240 * 1024
@@ -91,7 +101,9 @@ func TestXrayDialUDPConn(t *testing.T) {
 		MsgProcessor: xor,
 	}
 	dest, err := udpServer.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer udpServer.Close()
 
 	config := &core.Config{
@@ -108,14 +120,20 @@ func TestXrayDialUDPConn(t *testing.T) {
 	}
 
 	cfgBytes, err := proto.Marshal(config)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	server, err := core.StartInstance("protobuf", cfgBytes)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer server.Close()
 
 	conn, err := core.Dial(context.Background(), server, dest)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	const size = 1024
@@ -151,14 +169,18 @@ func TestXrayDialUDP(t *testing.T) {
 		MsgProcessor: xor,
 	}
 	dest1, err := udpServer1.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer udpServer1.Close()
 
 	udpServer2 := udp.Server{
 		MsgProcessor: xor2,
 	}
 	dest2, err := udpServer2.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer udpServer2.Close()
 
 	config := &core.Config{
@@ -175,14 +197,20 @@ func TestXrayDialUDP(t *testing.T) {
 	}
 
 	cfgBytes, err := proto.Marshal(config)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	server, err := core.StartInstance("protobuf", cfgBytes)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer server.Close()
 
 	conn, err := core.DialUDP(context.Background(), server)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	const size = 1024

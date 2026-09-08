@@ -9,7 +9,9 @@ import (
 
 func TestStaticPickerEmpty(t *testing.T) {
 	picker, err := reverse.NewStaticMuxPicker()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	worker, err := picker.PickAvailable()
 	if err == nil {
 		t.Error("expected error, but nil")

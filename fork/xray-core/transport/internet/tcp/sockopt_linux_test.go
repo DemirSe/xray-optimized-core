@@ -17,13 +17,19 @@ import (
 func TestGetOriginalDestination(t *testing.T) {
 	tcpServer := tcp.Server{}
 	dest, err := tcpServer.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer tcpServer.Close()
 
 	config, err := internet.ToMemoryStreamConfig(nil)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	conn, err := Dial(context.Background(), dest, config)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	originalDest, err := GetOriginalDestination(conn)

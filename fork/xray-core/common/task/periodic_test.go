@@ -17,9 +17,13 @@ func TestPeriodicTaskStop(t *testing.T) {
 			return nil
 		},
 	}
-	common.Must(task.Start())
+	if err := common.Must(task.Start()); err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(time.Second * 5)
-	common.Must(task.Close())
+	if err := common.Must(task.Close()); err != nil {
+		t.Fatal(err)
+	}
 	if value != 3 {
 		t.Fatal("expected 3, but got ", value)
 	}
@@ -27,10 +31,14 @@ func TestPeriodicTaskStop(t *testing.T) {
 	if value != 3 {
 		t.Fatal("expected 3, but got ", value)
 	}
-	common.Must(task.Start())
+	if err := common.Must(task.Start()); err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(time.Second * 3)
 	if value != 5 {
 		t.Fatal("Expected 5, but ", value)
 	}
-	common.Must(task.Close())
+	if err := common.Must(task.Close()); err != nil {
+		t.Fatal(err)
+	}
 }

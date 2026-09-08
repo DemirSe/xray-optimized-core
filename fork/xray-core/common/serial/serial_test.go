@@ -15,7 +15,9 @@ func TestUint16Serial(t *testing.T) {
 	defer b.Release()
 
 	n, err := serial.WriteUint16(b, 10)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if n != 2 {
 		t.Error("expect 2 bytes writtng, but actually ", n)
 	}
@@ -29,7 +31,9 @@ func TestUint64Serial(t *testing.T) {
 	defer b.Release()
 
 	n, err := serial.WriteUint64(b, 10)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if n != 8 {
 		t.Error("expect 8 bytes writtng, but actually ", n)
 	}
@@ -51,7 +55,9 @@ func TestReadUint16(t *testing.T) {
 
 	for _, testCase := range testCases {
 		v, err := serial.ReadUint16(bytes.NewReader(testCase.Input))
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if v != testCase.Output {
 			t.Error("for input ", testCase.Input, " expect output ", testCase.Output, " but got ", v)
 		}
@@ -67,7 +73,9 @@ func BenchmarkReadUint16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := serial.ReadUint16(reader)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		reader.Clear()
 		reader.Extend(2)
 	}
@@ -81,7 +89,9 @@ func BenchmarkWriteUint64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := serial.WriteUint64(writer, 8)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			b.Fatal(err)
+		}
 		writer.Clear()
 	}
 }

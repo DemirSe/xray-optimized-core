@@ -20,23 +20,33 @@ func TestSockOptMark(t *testing.T) {
 		},
 	}
 	dest, err := tcpServer.Start()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer tcpServer.Close()
 
 	const mark = 1
 	dialer := DefaultSystemDialer{}
 	conn, err := dialer.Dial(context.Background(), nil, dest, &SocketConfig{Mark: mark})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	defer conn.Close()
 
 	rawConn, err := conn.(*net.TCPConn).SyscallConn()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	err = rawConn.Control(func(fd uintptr) {
 		m, err := syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		if mark != m {
 			t.Fatal("unexpected connection mark", m, " want ", mark)
 		}
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 }

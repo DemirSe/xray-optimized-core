@@ -28,10 +28,18 @@ func TestECHDial(t *testing.T) {
 				},
 			}
 			resp, err := client.Get("https://cloudflare.com/cdn-cgi/trace")
-			common.Must(err)
+			if err := common.Must(err); err != nil {
+				t.Error(err)
+				wg.Done()
+				return
+			}
 			defer resp.Body.Close()
 			body, err := io.ReadAll(resp.Body)
-			common.Must(err)
+			if err := common.Must(err); err != nil {
+				t.Error(err)
+				wg.Done()
+				return
+			}
 			if !strings.Contains(string(body), "sni=encrypted") {
 				t.Error("ECH Dial success but SNI is not encrypted")
 			}

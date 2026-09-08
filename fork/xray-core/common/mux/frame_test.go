@@ -19,7 +19,9 @@ func BenchmarkFrameWrite(b *testing.B) {
 	defer writer.Release()
 
 	for i := 0; i < b.N; i++ {
-		common.Must(frame.WriteTo(writer))
+		if err := common.Must(frame.WriteTo(writer)); err != nil {
+			b.Fatal(err)
+		}
 		writer.Clear()
 	}
 }

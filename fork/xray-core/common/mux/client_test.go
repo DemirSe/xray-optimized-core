@@ -35,10 +35,14 @@ func TestIncrementalPickerFailure(t *testing.T) {
 
 func TestClientWorkerEOF(t *testing.T) {
 	reader, writer := pipe.New(pipe.WithoutSizeLimit())
-	common.Must(writer.Close())
+	if err := common.Must(writer.Close()); err != nil {
+		t.Fatal(err)
+	}
 
 	worker, err := mux.NewClientWorker(transport.Link{Reader: reader, Writer: writer}, mux.ClientStrategy{})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Millisecond * 500)
 
@@ -60,7 +64,9 @@ func TestClientWorkerClose(t *testing.T) {
 		MaxConcurrency: 4,
 		MaxConnection:  4,
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	r2, w2 := pipe.New(pipe.WithoutSizeLimit())
 	worker2, err := mux.NewClientWorker(transport.Link{
@@ -70,7 +76,9 @@ func TestClientWorkerClose(t *testing.T) {
 		MaxConcurrency: 4,
 		MaxConnection:  4,
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	factory := mocks.NewMuxClientWorkerFactory(mockCtl)
 	gomock.InOrder(
@@ -89,13 +97,17 @@ func TestClientWorkerClose(t *testing.T) {
 	ctx1 := session.ContextWithOutbounds(context.Background(), []*session.Outbound{{
 		Target: net.TCPDestination(net.DomainAddress("www.example.com"), 80),
 	}})
-	common.Must(manager.Dispatch(ctx1, &transport.Link{
+	if err := common.Must(manager.Dispatch(ctx1, &transport.Link{
 		Reader: tr1,
 		Writer: tw1,
-	}))
+	})); err != nil {
+		t.Fatal(err)
+	}
 	defer tw1.Close()
 
-	common.Must(w1.Close())
+	if err := common.Must(w1.Close()); err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Millisecond * 500)
 	if !worker1.Closed() {
@@ -106,11 +118,15 @@ func TestClientWorkerClose(t *testing.T) {
 	ctx2 := session.ContextWithOutbounds(context.Background(), []*session.Outbound{{
 		Target: net.TCPDestination(net.DomainAddress("www.example.com"), 80),
 	}})
-	common.Must(manager.Dispatch(ctx2, &transport.Link{
+	if err := common.Must(manager.Dispatch(ctx2, &transport.Link{
 		Reader: tr2,
 		Writer: tw2,
-	}))
+	})); err != nil {
+		t.Fatal(err)
+	}
 	defer tw2.Close()
 
-	common.Must(w2.Close())
+	if err := common.Must(w2.Close()); err != nil {
+		t.Fatal(err)
+	}
 }

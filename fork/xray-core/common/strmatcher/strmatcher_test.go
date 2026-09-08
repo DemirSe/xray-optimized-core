@@ -82,7 +82,9 @@ func TestMatcherGroup(t *testing.T) {
 	matcherGroup := &MatcherGroup{}
 	for _, rule := range rules {
 		matcher, err := rule.Type.New(rule.Domain)
-		common.Must(err)
+		if err := common.Must(err); err != nil {
+			t.Fatal(err)
+		}
 		matcherGroup.Add(matcher)
 	}
 	for _, test := range cases {

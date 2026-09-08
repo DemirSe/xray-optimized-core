@@ -73,10 +73,14 @@ func TestRegressionOutboundLeak(t *testing.T) {
 
 	muxServerUplink, muxServerDownlink := newLinkPair()
 	_, err := mux.NewServerWorker(serverCtx, &dispatcher, muxServerUplink)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	client, err := mux.NewClientWorker(*muxServerDownlink, mux.ClientStrategy{})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	clientCtx := session.ContextWithOutbounds(context.Background(), []*session.Outbound{{
 		Target: net.TCPDestination(net.DomainAddress("www.example.com"), 80),
@@ -91,11 +95,15 @@ func TestRegressionOutboundLeak(t *testing.T) {
 
 	{
 		b := buf.FromBytes([]byte("hello"))
-		common.Must(muxClientDownlink.Writer.WriteMultiBuffer(buf.MultiBuffer{b}))
+		if err := common.Must(muxClientDownlink.Writer.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	resMb, err := websiteUplink.Reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	res := resMb.String()
 	if res != "hello" {
 		t.Error("upload: ", res)
@@ -103,11 +111,15 @@ func TestRegressionOutboundLeak(t *testing.T) {
 
 	{
 		b := buf.FromBytes([]byte("world"))
-		common.Must(websiteUplink.Writer.WriteMultiBuffer(buf.MultiBuffer{b}))
+		if err := common.Must(websiteUplink.Writer.WriteMultiBuffer(buf.MultiBuffer{b})); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	resMb, err = muxClientDownlink.Reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	res = resMb.String()
 	if res != "world" {
 		t.Error("download: ", res)

@@ -26,7 +26,9 @@ func TestXudpReadWrite(t *testing.T) {
 
 	reader := NewPacketReader(&m)
 	dest, err := reader.ReadMultiBuffer()
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if dest[0].Byte(0) != 'a' {
 		t.Error("failed to parse xudp buffer")
 	}

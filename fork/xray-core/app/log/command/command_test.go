@@ -24,8 +24,12 @@ func TestLoggerRestart(t *testing.T) {
 			serial.ToTypedMessage(&proxyman.OutboundConfig{}),
 		},
 	})
-	common.Must(err)
-	common.Must(v.Start())
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
+	if err := common.Must(v.Start()); err != nil {
+		t.Fatal(err)
+	}
 
 	server := &LoggerServer{
 		V: v,

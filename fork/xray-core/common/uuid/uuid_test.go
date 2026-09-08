@@ -13,7 +13,9 @@ func TestParseBytes(t *testing.T) {
 	bytes := []byte{0x24, 0x18, 0xd0, 0x87, 0x64, 0x8d, 0x49, 0x90, 0x86, 0xe8, 0x19, 0xdc, 0xa1, 0xd0, 0x06, 0xd3}
 
 	uuid, err := ParseBytes(bytes)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if diff := cmp.Diff(uuid.String(), str); diff != "" {
 		t.Error(diff)
 	}
@@ -29,7 +31,9 @@ func TestParseString(t *testing.T) {
 	expectedBytes := []byte{0x24, 0x18, 0xd0, 0x87, 0x64, 0x8d, 0x49, 0x90, 0x86, 0xe8, 0x19, 0xdc, 0xa1, 0xd0, 0x06, 0xd3}
 
 	uuid, err := ParseString(str)
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if r := cmp.Diff(expectedBytes, uuid.Bytes()); r != "" {
 		t.Fatal(r)
 	}
@@ -55,7 +59,9 @@ func TestNewUUID(t *testing.T) {
 	uuid := New()
 	uuid2, err := ParseString(uuid.String())
 
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 	if uuid.String() != uuid2.String() {
 		t.Error("uuid string: ", uuid.String(), " != ", uuid2.String())
 	}

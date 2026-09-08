@@ -22,7 +22,9 @@ func TestPolicy(t *testing.T) {
 			},
 		},
 	})
-	common.Must(err)
+	if err := common.Must(err); err != nil {
+		t.Fatal(err)
+	}
 
 	pDefault := policy.SessionDefault()
 
