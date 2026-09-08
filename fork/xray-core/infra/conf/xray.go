@@ -310,12 +310,11 @@ type Config struct {
 	// left for returning error
 	Transport map[string]json.RawMessage `json:"transport"`
 
-	LogConfig        *LogConfig              `json:"log"`
-	InboundConfigs   []InboundDetourConfig   `json:"inbounds"`
-	OutboundConfigs  []OutboundDetourConfig  `json:"outbounds"`
-	Policy           *PolicyConfig           `json:"policy"`
-	Reverse          *ReverseConfig          `json:"reverse"`
-	Version          *VersionConfig          `json:"version"`
+	LogConfig       *LogConfig             `json:"log"`
+	InboundConfigs  []InboundDetourConfig  `json:"inbounds"`
+	OutboundConfigs []OutboundDetourConfig `json:"outbounds"`
+	Policy          *PolicyConfig          `json:"policy"`
+	Reverse         *ReverseConfig         `json:"reverse"`
 }
 
 func (c *Config) findInboundTag(tag string) int {
@@ -355,13 +354,6 @@ func (c *Config) Override(o *Config, fn string) {
 	}
 	if o.Reverse != nil {
 		c.Reverse = o.Reverse
-	}
-
-
-
-
-	if o.Version != nil {
-		c.Version = o.Version
 	}
 
 	// update the Inbound in slice if the only one in override config has same tag
@@ -439,14 +431,6 @@ func (c *Config) Build() (*core.Config, error) {
 		r, err := c.Reverse.Build()
 		if err != nil {
 			return nil, errors.New("failed to build reverse configuration").Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.Version != nil {
-		r, err := c.Version.Build()
-		if err != nil {
-			return nil, errors.New("failed to build version configuration").Base(err)
 		}
 		config.App = append(config.App, serial.ToTypedMessage(r))
 	}
