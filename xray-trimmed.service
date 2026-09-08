@@ -7,7 +7,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/xray-trimmed run -c /etc/xray/config.json
+ExecStart=/usr/local/bin/xray-trimmed run -c /usr/local/etc/xray/config.json
 Restart=always
 RestartSec=5
 
