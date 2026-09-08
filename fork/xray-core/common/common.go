@@ -16,18 +16,8 @@ import (
 // ErrNoClue is for the situation that existing information is not enough to make a decision. For example, Router may return this error when there is no suitable route.
 var ErrNoClue = errors.New("not enough information for making a decision")
 
-// Must returns err so callers propagate it instead of panicking.
-func Must(err error) error {
-	return err
-}
-
-// Must2 returns the first parameter, discarding err.
-// Only use when err is provably impossible (e.g. writes to an in-memory buffer).
-// Internal usage only, if user input can cause err, it must be handled
-func Must2[T any](v T, _ error) T {
-	return v
-}
-
+// Must/Must2 live in must.go (!devlog) and must_devlog.go (devlog) so
+// production keeps the exact current bodies with zero added branches.
 // Error2 returns the err from the 2nd parameter.
 func Error2(v interface{}, err error) error {
 	return err

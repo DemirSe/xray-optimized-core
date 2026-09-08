@@ -10,6 +10,7 @@ import (
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	c "github.com/xtls/xray-core/common/ctx"
+	"github.com/xtls/xray-core/common/devlog"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/serial"
@@ -208,6 +209,7 @@ func (c *udpConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
 }
 
 func (c *udpConn) Read(buf []byte) (int, error) {
+	devlog.Log("inbound udpConn.Read not implemented")
 	return 0, errors.New("not implemented")
 }
 

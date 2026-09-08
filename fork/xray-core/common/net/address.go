@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/xtls/xray-core/common/devlog"
 	"github.com/xtls/xray-core/common/errors"
 )
 
@@ -116,6 +117,7 @@ func IPAddress(ip []byte) Address {
 		return addr
 	default:
 		errors.LogError(context.Background(), "invalid IP format: ", ip)
+		devlog.Log("net: IPAddress invalid length: ", len(ip))
 		return nil
 	}
 }
@@ -138,6 +140,7 @@ func (a ipv4Address) IP() net.IP {
 
 func (ipv4Address) Domain() string {
 	errors.LogError(context.Background(), "Calling Domain() on an IPv4Address.")
+	devlog.Log("net: Domain() on ipv4Address")
 	return ""
 }
 
@@ -157,6 +160,7 @@ func (a ipv6Address) IP() net.IP {
 
 func (ipv6Address) Domain() string {
 	errors.LogError(context.Background(), "Calling Domain() on an IPv6Address.")
+	devlog.Log("net: Domain() on ipv6Address")
 	return ""
 }
 
@@ -172,6 +176,7 @@ type domainAddress string
 
 func (domainAddress) IP() net.IP {
 	errors.LogError(context.Background(), "Calling IP() on a DomainAddress.")
+	devlog.Log("net: IP() on domainAddress")
 	return nil
 }
 
@@ -190,6 +195,7 @@ func (a domainAddress) String() string {
 // AsAddress translates IPOrDomain to Address.
 func (d *IPOrDomain) AsAddress() Address {
 	if d == nil {
+		devlog.Log("net: AsAddress on nil IPOrDomain")
 		return nil
 	}
 	switch addr := d.Address.(type) {
@@ -199,6 +205,7 @@ func (d *IPOrDomain) AsAddress() Address {
 		return DomainAddress(addr.Domain)
 	}
 	errors.LogError(context.Background(), "Common|Net: Invalid address.")
+	devlog.Log("net: AsAddress invalid address type")
 	return nil
 }
 
@@ -219,6 +226,7 @@ func NewIPOrDomain(addr Address) *IPOrDomain {
 		}
 	default:
 		errors.LogError(context.Background(), "Unknown Address type.")
+		devlog.Log("net: NewIPOrDomain unknown address type")
 		return nil
 	}
 }
