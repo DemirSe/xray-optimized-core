@@ -201,3 +201,11 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 
 - 10-client ABABABAB serisi: 20→100 tutarlı ~%2 gecikme kazancı; 200 ve 1000'de ek kazanç yok, yalnızca RAM artışı (100: ~26MB, 1000: ~36MB heap). Sahip kararı: RAM bol (~700MB boş), GC neredeyse dursun diye 1000 seçildi.
 - Uygulama: `20-gogc.conf` → `Environment=GOGC=1000`, yedek `/root/20-gogc.conf.bak-20260908`, daemon-reload + restart; doğrulandı: active, PID 155232, `:443` yalnızca xray, binary `400d51d`. Geri dönüş: yedeği geri yaz + restart.
+
+## CPU dökümü denemesi durdu (2026-09-08)
+
+- 10-client process-bazlı CPU ölçümü iki kez üst-üste ebeveyn zaman aşımına takıldı; ikinci seferde kalan lab (10 kural, netns, test process'leri) elle temizlendi, canlı etkilenmedi (PID 155232, `:443` xray-only). Tekrar denemeden önce harness kurulum süresi kısaltılmalı.
+
+## Profil denemesi: perf bu kutuda ölü (2026-09-08)
+
+- `perf_event_paranoid=3`, sanal PMU yok: 20 sn kayıtta sıfır örnek. Go pprof endpoint'i canlı binary'de yok. %2,5→%2 avı için önce lab-only profilli binary gerekir; şu an park edildi. Lab tamamen temizlendi, canlı etkilenmedi.
