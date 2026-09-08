@@ -208,7 +208,7 @@ func (c *udpConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
 }
 
 func (c *udpConn) Read(buf []byte) (int, error) {
-	panic("not implemented")
+	return 0, errors.New("not implemented")
 }
 
 // Write implements io.Writer.
@@ -227,9 +227,10 @@ func (c *udpConn) Close() error {
 	if c.cancel != nil {
 		c.cancel()
 	}
-	common.Must(c.done.Close())
-	common.Must(common.Close(c.writer))
-	return nil
+	if err := c.done.Close(); err != nil {
+		return err
+	}
+	return common.Close(c.writer)
 }
 
 func (c *udpConn) RemoteAddr() net.Addr {
@@ -328,7 +329,9 @@ func (w *udpWorker) callback(b *buf.Buffer, source net.Destination, originalDest
 	conn.writer.WriteMultiBuffer(buf.MultiBuffer{b})
 
 	if !existing {
-		common.Must(w.checker.Start())
+		if err := w.checker.Start(); err != nil {
+			panic(err)
+		}
 
 		go func() {
 			ctx, cancel := context.WithCancel(w.ctx)

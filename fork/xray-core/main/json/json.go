@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/core"
@@ -14,7 +13,7 @@ import (
 )
 
 func init() {
-	common.Must(core.RegisterConfigLoader(&core.ConfigFormat{
+	if err := core.RegisterConfigLoader(&core.ConfigFormat{
 		Name:      "JSON",
 		Extension: []string{"json"},
 		Loader: func(input interface{}) (*core.Config, error) {
@@ -46,5 +45,7 @@ func init() {
 				return nil, errors.New("unknown type")
 			}
 		},
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }

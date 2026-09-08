@@ -35,6 +35,10 @@ func NewNoOpConnectionHeader(context.Context, interface{}) (interface{}, error) 
 }
 
 func init() {
-	common.Must(common.RegisterConfig((*Config)(nil), NewNoOpHeader))
-	common.Must(common.RegisterConfig((*ConnectionConfig)(nil), NewNoOpConnectionHeader))
+	if err := common.RegisterConfig((*Config)(nil), NewNoOpHeader); err != nil {
+		panic(err)
+	}
+	if err := common.RegisterConfig((*ConnectionConfig)(nil), NewNoOpConnectionHeader); err != nil {
+		panic(err)
+	}
 }

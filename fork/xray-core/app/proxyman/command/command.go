@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 
-	"github.com/xtls/xray-core/app/commander"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/protocol"
@@ -191,10 +190,6 @@ func (s *handlerServer) ListOutbounds(ctx context.Context, request *ListOutbound
 	handlers := s.ohm.ListHandlers(ctx)
 	response := &ListOutboundsResponse{}
 	for _, handler := range handlers {
-		// Ignore gRPC outbound
-		if _, ok := handler.(*commander.Outbound); ok {
-			continue
-		}
 		response.Outbounds = append(response.Outbounds, &core.OutboundHandlerConfig{
 			Tag:            handler.Tag(),
 			SenderSettings: handler.SenderSettings(),
@@ -214,10 +209,12 @@ func (s *service) Register(server *grpc.Server) {
 	hs := &handlerServer{
 		s: s.v,
 	}
-	common.Must(s.v.RequireFeatures(func(im inbound.Manager, om outbound.Manager) {
+	if err := s.v.RequireFeatures(func(im inbound.Manager, om outbound.Manager) {
 		hs.ihm = im
 		hs.ohm = om
-	}, false))
+	}, false); err != nil {
+		panic(err)
+	}
 	RegisterHandlerServiceServer(server, hs)
 
 	// For compatibility purposes
@@ -227,8 +224,10 @@ func (s *service) Register(server *grpc.Server) {
 }
 
 func init() {
-	common.Must(common.RegisterConfig((*Config)(nil), func(ctx context.Context, cfg interface{}) (interface{}, error) {
+	if err := common.RegisterConfig((*Config)(nil), func(ctx context.Context, cfg interface{}) (interface{}, error) {
 		s := core.MustFromContext(ctx)
 		return &service{v: s}, nil
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }

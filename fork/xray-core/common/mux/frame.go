@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/bitmask"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
@@ -71,27 +70,39 @@ func (f FrameMetadata) WriteTo(b *buf.Buffer) error {
 	sessionBytes := b.Extend(2)
 	binary.BigEndian.PutUint16(sessionBytes, f.SessionID)
 
-	common.Must(b.WriteByte(byte(f.SessionStatus)))
-	common.Must(b.WriteByte(byte(f.Option)))
+	if err := b.WriteByte(byte(f.SessionStatus)); err != nil {
+		return err
+	}
+	if err := b.WriteByte(byte(f.Option)); err != nil {
+		return err
+	}
 
 	if f.SessionStatus == SessionStatusNew {
 		switch f.Target.Network {
 		case net.Network_TCP:
-			common.Must(b.WriteByte(byte(TargetNetworkTCP)))
+			if err := b.WriteByte(byte(TargetNetworkTCP)); err != nil {
+				return err
+			}
 		case net.Network_UDP:
-			common.Must(b.WriteByte(byte(TargetNetworkUDP)))
+			if err := b.WriteByte(byte(TargetNetworkUDP)); err != nil {
+				return err
+			}
 		}
 		if err := addrParser.WriteAddressPort(b, f.Target.Address, f.Target.Port); err != nil {
 			return err
 		}
 		if f.Inbound != nil {
 			if f.Inbound.Source.Network == net.Network_TCP || f.Inbound.Source.Network == net.Network_UDP {
-				common.Must(b.WriteByte(byte(f.Inbound.Source.Network - 1)))
+				if err := b.WriteByte(byte(f.Inbound.Source.Network - 1)); err != nil {
+					return err
+				}
 				if err := addrParser.WriteAddressPort(b, f.Inbound.Source.Address, f.Inbound.Source.Port); err != nil {
 					return err
 				}
 				if f.Inbound.Local.Network == net.Network_TCP || f.Inbound.Local.Network == net.Network_UDP {
-					common.Must(b.WriteByte(byte(f.Inbound.Local.Network - 1)))
+					if err := b.WriteByte(byte(f.Inbound.Local.Network - 1)); err != nil {
+						return err
+					}
 					if err := addrParser.WriteAddressPort(b, f.Inbound.Local.Address, f.Inbound.Local.Port); err != nil {
 						return err
 					}

@@ -102,7 +102,9 @@ func printJSON(certificate *cert.Certificate) {
 		Key:         strings.Split(strings.TrimSpace(string(keyPEM)), "\n"),
 	}
 	content, err := json.MarshalIndent(jCert, "", "  ")
-	common.Must(err)
+	if err != nil {
+		panic(err)
+	}
 	os.Stdout.Write(content)
 	os.Stdout.WriteString("\n")
 }

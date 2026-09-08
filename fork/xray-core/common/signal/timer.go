@@ -72,7 +72,9 @@ func (t *ActivityTimer) SetTimeout(timeout time.Duration) {
 	common.CloseIfExists(t.checkTask)
 	t.checkTask = newCheckTask
 	t.Update()
-	common.Must(newCheckTask.Start())
+	if err := newCheckTask.Start(); err != nil {
+		panic(err)
+	}
 }
 
 func CancelAfterInactivity(ctx context.Context, cancel context.CancelFunc, timeout time.Duration) *ActivityTimer {

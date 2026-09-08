@@ -24,7 +24,7 @@ func isInternalDomain(dest net.Destination) bool {
 }
 
 func init() {
-	common.Must(common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
+	if err := common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		r := new(Reverse)
 		if err := core.RequireFeatures(ctx, func(d routing.Dispatcher, om outbound.Manager) error {
 			return r.Init(config.(*Config), d, om)
@@ -32,7 +32,9 @@ func init() {
 			return nil, err
 		}
 		return r, nil
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }
 
 type Reverse struct {

@@ -4,7 +4,6 @@ import (
 	"context"
 	reflect "reflect"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/net/cnc"
@@ -13,7 +12,7 @@ import (
 )
 
 func init() {
-	common.Must(internet.RegisterTransportDialer(protocolName,
+	if err := internet.RegisterTransportDialer(protocolName,
 		func(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (stat.Connection, error) {
 			var sockopt *internet.SocketConfig
 			if streamSettings != nil {
@@ -65,5 +64,7 @@ func init() {
 
 			// TODO: handle dialer options
 			return conn, nil
-		}))
+		}); err != nil {
+		panic(err)
+	}
 }

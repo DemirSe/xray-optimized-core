@@ -8,37 +8,15 @@ import (
 )
 
 func TestMust(t *testing.T) {
-	hasPanic := func(f func()) (ret bool) {
-		defer func() {
-			if r := recover(); r != nil {
-				ret = true
-			}
-		}()
-		f()
-		return false
+	// Must returns err instead of panicking; callers must handle it.
+	if err := Must(func() error { return errors.New("test error") }()); err == nil {
+		t.Error("Must should return non-nil error")
 	}
-
-	testCases := []struct {
-		Input func()
-		Panic bool
-	}{
-		{
-			Panic: true,
-			Input: func() { Must(func() error { return errors.New("test error") }()) },
-		},
-		{
-			Panic: true,
-			Input: func() { Must2(func() (int, error) { return 0, errors.New("test error") }()) },
-		},
-		{
-			Panic: false,
-			Input: func() { Must(func() error { return nil }()) },
-		},
+	if err := Must(func() error { return nil }()); err != nil {
+		t.Error("Must should return nil error")
 	}
-
-	for idx, test := range testCases {
-		if hasPanic(test.Input) != test.Panic {
-			t.Error("test case #", idx, " expect panic ", test.Panic, " but actually not")
-		}
+	// Must2 returns the value, discarding err.
+	if v := Must2(func() (int, error) { return 42, errors.New("test error") }()); v != 42 {
+		t.Error("Must2 should return the value")
 	}
 }

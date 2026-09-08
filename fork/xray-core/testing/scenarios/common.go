@@ -103,7 +103,7 @@ var (
 func genTestBinaryPath() {
 	testBinaryPathGen.Do(func() {
 		var tempDir string
-		common.Must(retry.Timed(5, 100).On(func() error {
+		if err := retry.Timed(5, 100).On(func() error {
 			dir, err := os.MkdirTemp("", "xray")
 			if err != nil {
 				return err
@@ -111,7 +111,9 @@ func genTestBinaryPath() {
 			tempDir = dir
 			testBinaryCleanFn = func() { os.RemoveAll(dir) }
 			return nil
-		}))
+		}); err != nil {
+			panic(err)
+		}
 		file := filepath.Join(tempDir, "xray.test")
 		if runtime.GOOS == "windows" {
 			file += ".exe"

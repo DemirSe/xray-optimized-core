@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/signal"
 	"github.com/xtls/xray-core/common/signal/done"
@@ -182,7 +181,9 @@ func (p *pipe) Close() error {
 	}
 
 	p.state = closed
-	common.Must(p.done.Close())
+	if err := p.done.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -205,5 +206,7 @@ func (p *pipe) Interrupt() {
 
 	p.state = errord
 
-	common.Must(p.done.Close())
+	if err := p.done.Close(); err != nil {
+		panic(err)
+	}
 }

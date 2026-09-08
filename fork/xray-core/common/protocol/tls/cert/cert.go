@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 )
 
@@ -90,7 +89,9 @@ func Organization(org string) Option {
 
 func MustGenerate(parent *Certificate, opts ...Option) (*Certificate, [32]byte) {
 	cert, err := Generate(parent, opts...)
-	common.Must(err)
+	if err != nil {
+		panic(err)
+	}
 	return cert, sha256.Sum256(cert.Certificate)
 }
 

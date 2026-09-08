@@ -291,7 +291,9 @@ func (w *PortalWorker) heartbeat() error {
 	w.counter = (w.counter + 1) % 5
 	if w.draining || w.counter == 1 {
 		b, err := proto.Marshal(msg)
-		common.Must(err)
+		if err != nil {
+			return err
+		}
 		mb := buf.MergeBytes(nil, b)
 		w.timer.Update()
 		return w.writer.WriteMultiBuffer(mb)

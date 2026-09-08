@@ -7,7 +7,6 @@ import (
 	"time"
 
 	goreality "github.com/xtls/reality"
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/transport/internet"
@@ -141,5 +140,7 @@ func (v *Listener) Close() error {
 }
 
 func init() {
-	common.Must(internet.RegisterTransportListener(protocolName, ListenTCP))
+	if err := internet.RegisterTransportListener(protocolName, ListenTCP); err != nil {
+		panic(err)
+	}
 }

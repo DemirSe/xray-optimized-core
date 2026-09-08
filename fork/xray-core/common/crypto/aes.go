@@ -21,7 +21,9 @@ func NewAesEncryptionStream(key []byte, iv []byte) cipher.Stream {
 
 func NewAesStreamMethod(key []byte, iv []byte, f func(cipher.Block, []byte) cipher.Stream) cipher.Stream {
 	aesBlock, err := aes.NewCipher(key)
-	common.Must(err)
+	if err != nil {
+		panic(err)
+	}
 	return f(aesBlock, iv)
 }
 

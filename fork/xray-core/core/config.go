@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/common/errors"
@@ -168,24 +167,32 @@ func loadProtobufConfig(data []byte) (*Config, error) {
 }
 
 func init() {
-	common.Must(RegisterConfigLoader(&ConfigFormat{
+	if err := RegisterConfigLoader(&ConfigFormat{
 		Name:      "Protobuf",
 		Extension: []string{"pb"},
 		Loader: func(input interface{}) (*Config, error) {
 			switch v := input.(type) {
 			case cmdarg.Arg:
 				r, err := confloader.LoadConfig(v[0])
-				common.Must(err)
+				if err != nil {
+					return nil, err
+				}
 				data, err := buf.ReadAllToBytes(r)
-				common.Must(err)
+				if err != nil {
+					return nil, err
+				}
 				return loadProtobufConfig(data)
 			case io.Reader:
 				data, err := buf.ReadAllToBytes(v)
-				common.Must(err)
+				if err != nil {
+					return nil, err
+				}
 				return loadProtobufConfig(data)
 			default:
 				return nil, errors.New("unknown type")
 			}
 		},
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }

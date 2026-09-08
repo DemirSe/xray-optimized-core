@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/main/commands/base"
 	"github.com/xtls/xray-core/transport/internet/tls"
 	"golang.org/x/crypto/cryptobyte"
@@ -47,7 +46,9 @@ func executeECH(cmd *base.Command, args []string) {
 	// }
 
 	echConfig, priv, err := generateECHKeySet(0, *input_serverName, kem)
-	common.Must(err)
+	if err != nil {
+		panic(err)
+	}
 
 	var configBuffer, keyBuffer []byte
 	if *input_echServerKeys == "" {

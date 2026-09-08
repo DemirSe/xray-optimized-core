@@ -133,7 +133,9 @@ func (w *ServerWorker) monitor() {
 			return
 		case <-w.timer.C:
 			if w.sessionManager.CloseIfNoSessionAndIdle(checkSize, checkCount) {
-				common.Must(w.done.Close())
+				if err := w.done.Close(); err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
@@ -362,7 +364,9 @@ func (w *ServerWorker) handleFrame(ctx context.Context, reader *buf.BufferedRead
 
 func (w *ServerWorker) run(ctx context.Context) {
 	defer func() {
-		common.Must(w.done.Close())
+		if err := w.done.Close(); err != nil {
+			panic(err)
+		}
 	}()
 
 	reader := &buf.BufferedReader{Reader: w.link.Reader}

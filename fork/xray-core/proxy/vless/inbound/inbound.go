@@ -46,7 +46,7 @@ import (
 )
 
 func init() {
-	common.Must(common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
+	if err := common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		var dc dns.Client
 		if err := core.RequireFeatures(ctx, func(d dns.Client) error {
 			dc = d
@@ -69,7 +69,9 @@ func init() {
 		}
 
 		return New(ctx, c, dc, validator)
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }
 
 // Handler is an inbound connection handler that handles messages in VLess protocol.

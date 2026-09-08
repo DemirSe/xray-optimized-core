@@ -119,7 +119,9 @@ func (p *IncrementalWorkerPicker) pickInternal() (*ClientWorker, bool, error) {
 func (p *IncrementalWorkerPicker) PickAvailable() (*ClientWorker, error) {
 	worker, start, err := p.pickInternal()
 	if start {
-		common.Must(p.cleanupTask.Start())
+		if err := p.cleanupTask.Start(); err != nil {
+			return nil, err
+		}
 	}
 
 	return worker, err
@@ -161,7 +163,9 @@ func (f *DialingWorkerFactory) Create() (*ClientWorker, error) {
 				errors.LogInfoInner(ctx, errP, "failed to handler mux client connection")
 			}
 		}
-		common.Must(c.Close())
+		if err := c.Close(); err != nil {
+			panic(err)
+		}
 		cancel()
 	}(f.Proxy, f.Dialer, c.done)
 
@@ -237,7 +241,9 @@ func (m *ClientWorker) monitor() {
 			return
 		case <-m.timer.C:
 			if m.sessionManager.CloseIfNoSessionAndIdle(checkSize, checkCount) {
-				common.Must(m.done.Close())
+				if err := m.done.Close(); err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
@@ -381,7 +387,9 @@ func (m *ClientWorker) handleStatusEnd(meta *FrameMetadata, reader *buf.Buffered
 
 func (m *ClientWorker) fetchOutput() {
 	defer func() {
-		common.Must(m.done.Close())
+		if err := m.done.Close(); err != nil {
+			panic(err)
+		}
 	}()
 
 	reader := &buf.BufferedReader{Reader: m.link.Reader}

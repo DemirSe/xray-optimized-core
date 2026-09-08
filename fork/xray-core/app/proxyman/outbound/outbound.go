@@ -189,10 +189,14 @@ func (m *Manager) Select(selectors []string) []string {
 }
 
 func init() {
-	common.Must(common.RegisterConfig((*proxyman.OutboundConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
+	if err := common.RegisterConfig((*proxyman.OutboundConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		return New(ctx, config.(*proxyman.OutboundConfig))
-	}))
-	common.Must(common.RegisterConfig((*core.OutboundHandlerConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
+	}); err != nil {
+		panic(err)
+	}
+	if err := common.RegisterConfig((*core.OutboundHandlerConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		return NewHandler(ctx, config.(*core.OutboundHandlerConfig))
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }

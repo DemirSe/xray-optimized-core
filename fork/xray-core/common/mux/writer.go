@@ -1,7 +1,6 @@
 package mux
 
 import (
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
@@ -129,7 +128,9 @@ func (w *Writer) Close() error {
 	}
 
 	frame := buf.New()
-	common.Must(meta.WriteTo(frame))
+	if err := meta.WriteTo(frame); err != nil {
+		return err
+	}
 
 	w.writer.WriteMultiBuffer(buf.MultiBuffer{frame})
 	return nil

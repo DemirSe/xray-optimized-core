@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/common/task"
 )
@@ -89,7 +88,9 @@ func (s *Service) Subscribe(name string) *Subscriber {
 	s.Lock()
 	s.subs[name] = append(s.subs[name], sub)
 	s.Unlock()
-	common.Must(s.ctask.Start())
+	if err := s.ctask.Start(); err != nil {
+		panic(err)
+	}
 	return sub
 }
 

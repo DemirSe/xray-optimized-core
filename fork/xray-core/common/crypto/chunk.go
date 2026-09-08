@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 )
 
@@ -51,7 +50,9 @@ func (p *AEADChunkSizeParser) SizeBytes() int32 {
 func (p *AEADChunkSizeParser) Encode(size uint16, b []byte) []byte {
 	binary.BigEndian.PutUint16(b, size-uint16(p.Auth.Overhead()))
 	b, err := p.Auth.Seal(b[:0], b[:2])
-	common.Must(err)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 

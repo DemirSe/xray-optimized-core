@@ -137,7 +137,8 @@ func (a ipv4Address) IP() net.IP {
 }
 
 func (ipv4Address) Domain() string {
-	panic("Calling Domain() on an IPv4Address.")
+	errors.LogError(context.Background(), "Calling Domain() on an IPv4Address.")
+	return ""
 }
 
 func (ipv4Address) Family() AddressFamily {
@@ -155,7 +156,8 @@ func (a ipv6Address) IP() net.IP {
 }
 
 func (ipv6Address) Domain() string {
-	panic("Calling Domain() on an IPv6Address.")
+	errors.LogError(context.Background(), "Calling Domain() on an IPv6Address.")
+	return ""
 }
 
 func (ipv6Address) Family() AddressFamily {
@@ -169,7 +171,8 @@ func (a ipv6Address) String() string {
 type domainAddress string
 
 func (domainAddress) IP() net.IP {
-	panic("Calling IP() on a DomainAddress.")
+	errors.LogError(context.Background(), "Calling IP() on a DomainAddress.")
+	return nil
 }
 
 func (a domainAddress) Domain() string {
@@ -195,7 +198,8 @@ func (d *IPOrDomain) AsAddress() Address {
 	case *IPOrDomain_Domain:
 		return DomainAddress(addr.Domain)
 	}
-	panic("Common|Net: Invalid address.")
+	errors.LogError(context.Background(), "Common|Net: Invalid address.")
+	return nil
 }
 
 // NewIPOrDomain translates Address to IPOrDomain
@@ -214,6 +218,7 @@ func NewIPOrDomain(addr Address) *IPOrDomain {
 			},
 		}
 	default:
-		panic("Unknown Address type.")
+		errors.LogError(context.Background(), "Unknown Address type.")
+		return nil
 	}
 }

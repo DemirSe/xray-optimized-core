@@ -3,7 +3,6 @@ package log
 import (
 	"sync"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/log"
 )
@@ -42,19 +41,25 @@ func createHandler(logType LogType, options HandlerCreatorOptions) (log.Handler,
 }
 
 func init() {
-	common.Must(RegisterHandlerCreator(LogType_Console, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
+	if err := RegisterHandlerCreator(LogType_Console, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
 		return log.NewLogger(log.CreateStdoutLogWriter()), nil
-	}))
+	}); err != nil {
+		panic(err)
+	}
 
-	common.Must(RegisterHandlerCreator(LogType_File, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
+	if err := RegisterHandlerCreator(LogType_File, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
 		creator, err := log.CreateFileLogWriter(options.Path)
 		if err != nil {
 			return nil, err
 		}
 		return log.NewLogger(creator), nil
-	}))
+	}); err != nil {
+		panic(err)
+	}
 
-	common.Must(RegisterHandlerCreator(LogType_None, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
+	if err := RegisterHandlerCreator(LogType_None, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
 		return nil, nil
-	}))
+	}); err != nil {
+		panic(err)
+	}
 }
