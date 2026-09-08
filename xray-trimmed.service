@@ -1,0 +1,15 @@
+# install: sudo cp xray-trimmed.service /etc/systemd/system/xray-trimmed.service
+# install: sudo systemctl daemon-reload && sudo systemctl enable --now xray-trimmed.service
+# install: systemctl is-active xray-trimmed.service
+[Unit]
+Description=Xray trimmed server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/xray-trimmed run -c /etc/xray/config.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
