@@ -83,3 +83,23 @@ Kural: config şeması ve Reality handshake BİREBİR aynı kalır (client stock
 - `main` = v26.3.27 pin + trim + log-kapısı (upstream-bleeding değil, bilinçli).
 - CI `trimmed-build` main+trimmed pushlarında yeşil.
 - Sıradaki: canlı rollout (ayrı y/n).
+
+## Subtree import (2026-09-07)
+
+- Kaynak: `https://github.com/DemirSe/xray-optimized-core.git` @ tam SHA
+  `400d51d0e072d97376ccaeaae3e3a63928ffe277` (import öncesi `git ls-remote` ile
+  remote main ile eşitliği doğrulandı; LICENSE dahil tüm fork birebir alındı).
+- Hedef: `fork/xray-core` (`git subtree add --no-squash`, merge `87f2588b`;
+  `HEAD:fork/xray-core` ağacı kaynak commit ağacıyla aynı: `98747e5…`).
+- Modül dizini `fork/xray-core` (`module github.com/xtls/xray-core`, `go 1.26`).
+  Yerel build (denenmedi, CI'daki komut):
+  `cd fork/xray-core && go build -trimpath -ldflags="-s -w -buildid=" -o xray-trimmed ./main`
+- Güncelleme (manuel, pinli): önce remote main'in beklenen SHA'ya eşitliğini teyit et,
+  sonra `git subtree pull --prefix=fork/xray-core --no-squash <url> <tam-SHA>`.
+  Dışa aktarma (manuel): `git subtree push --prefix=fork/xray-core <url> <dal>`.
+  Push/production SSH/deploy bu import kapsamında yapılmadı.
+- `fork/xray-core/.github/workflows/` altındaki `trimmed-build` kök repo CI'sı olarak
+  çalışmaz (GitHub yalnızca repo kökündeki workflow'ları koşar); fork değişiklikleri
+  fork reposunda test edilir.
+- Budanmamış upstream yükseltmesi: kasıtlı trim + config/Reality uyumluluk incelemesi
+  ister; doğrudan alınmaz.

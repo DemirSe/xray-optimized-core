@@ -180,3 +180,24 @@ Kural: kritik bilgi 2 kaynaktan doğrulanır. Değişiklik = ölçüm + y/n onay
 - Politika: otomatik APT güncellemesi KAPALI (2026-09-07: apt-daily/apt-daily-upgrade timerları disabled+inactive; `99-disable-auto-upgrades` ile dört Periodic alanı efektif 0 doğrulandı). `apt-get update` ve `upgrade` yalnızca açık onayla, simülasyon gösterilerek; `-y/full-upgrade/autoremove` YOK, configler korunur (`--force-confold`), restart uyarısı var. Timer/cron kurulmaz, otomatik reboot YOK.
 - İlk canlı koşu (2026-09-07): yalnızca yedek + otomatik APT kapatma; `apt-get update` reddedildi, paket kurulumu/reboot yapılmadı. `~/backups/xray/20260907T005504Z/` (26M) COMPLETE, arşiv/hash/700-600 izin kontrolleri geçti. Xray `400d51d`, :443 sahipliği, BBR/fq ve kernel `.107` sağlıklı. Otomatik reboot efektif unset/default false; shutdown helper değiştirilmedi.
 - Yerel yedek: `~/backups/xray/<TS>Z/` (Git dışı, şifresiz, 700/600, umask 077). Kapsam: config+anahtarlar, sysctl, unit/drop-in, SSH drop-in, firewall (kalıcı+canlı), 3 binary, APT politikası. Sınırlama: tam imaj DEĞİL, restore DENENMEDİ; kısmi yedek INCOMPLETE işaretli kalır, hata sonrası ilerleme yok.
+
+## Fork subtree importu (2026-09-07)
+
+- Trimli fork `fork/xray-core` altına `git subtree add --no-squash` ile alındı
+  (kaynak `https://github.com/DemirSe/xray-optimized-core.git` @ `400d51d…`, merge
+  `87f2588b`; `HEAD:fork/xray-core` ağacı kaynak ağaçla eşit `98747e5…`).
+  Kilitli kararlar değişmedi: Debian amd64 1vCPU/1GB, stock Hiddify TUN, VLESS
+  REALITY Vision, dest yalnızca whatsapp.net, config uyumluluğu, stock rollback.
+  Canlı kurulum bu importla yeniden doğrulanmış sayılmaz; sonraki geliştirme adımı
+  fork-içi çalışmadır.
+
+## Performans testi sözleşmesi (2026-09-07)
+
+- Kullanıcı kararı: her karşılaştırma ABABABAB (8 tur/4 çift); stock Xray client ve custom server aynı VPS'te, gerçek REALITY dest/SNI daima whatsapp.net. Aynı-host kaynak paylaşımı sonuçlarda belirtilir.
+- Gecikme kazancı download/upload kapasitesi pahasına kabul edilmez; tek değişken, eşdeğer iş yükü ve tur bazlı ham veri gerekir. Kalıcı değişiklik ayrıca onay ister.
+- İlk GOGC 20/100 karşılaştırması benimsemeyi gerektiren kazanç göstermedi; canlı GOGC=20 korundu. Hız eşdeğerliği ve GC kaynaklı darboğaz kanıtlanmış değildir.
+
+## Canlı GOGC=1000 geçişi (2026-09-08)
+
+- 10-client ABABABAB serisi: 20→100 tutarlı ~%2 gecikme kazancı; 200 ve 1000'de ek kazanç yok, yalnızca RAM artışı (100: ~26MB, 1000: ~36MB heap). Sahip kararı: RAM bol (~700MB boş), GC neredeyse dursun diye 1000 seçildi.
+- Uygulama: `20-gogc.conf` → `Environment=GOGC=1000`, yedek `/root/20-gogc.conf.bak-20260908`, daemon-reload + restart; doğrulandı: active, PID 155232, `:443` yalnızca xray, binary `400d51d`. Geri dönüş: yedeği geri yaz + restart.

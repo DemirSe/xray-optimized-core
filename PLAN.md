@@ -34,3 +34,9 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 
 ## Sonraki adım
 Server SSH hazır mı? Hazırsa dest ping + kurulum komutunu veriyorum.
+
+## Fork entegrasyonu (2026-09-07)
+
+- Trimli fork `fork/xray-core` altında subtree (tarihçeli, `400d51d…`) olarak alındı;
+  ağaç birebirliği doğrulandı. Sonraki geliştirme adımı fork içinde trim/uyarlama
+  çalışmasıdır; canlı kurulum bu importla yeniden doğrulanmış sayılmaz.
