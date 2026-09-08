@@ -74,6 +74,9 @@ func isValidAddress(addr *net.IPOrDomain) bool {
 	}
 
 	a := addr.AsAddress()
+	if a == nil {
+		return false
+	}
 	return a != net.AnyIP && a != net.AnyIPv6
 }
 

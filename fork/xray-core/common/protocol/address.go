@@ -210,7 +210,7 @@ func (p *addressParser) readAddress(b *buf.Buffer, reader io.Reader) (net.Addres
 			return nil, err
 		}
 		domain := string(b.BytesFrom(-domainLength))
-		if maybeIPPrefix(domain[0]) {
+		if len(domain) > 0 && maybeIPPrefix(domain[0]) {
 			addr := net.ParseAddress(domain)
 			if addr.Family().IsIP() {
 				return addr, nil
@@ -226,6 +226,9 @@ func (p *addressParser) readAddress(b *buf.Buffer, reader io.Reader) (net.Addres
 }
 
 func (p *addressParser) writeAddress(writer io.Writer, address net.Address) error {
+	if address == nil {
+		return errors.New("nil address")
+	}
 	tb := p.addrByteMap[address.Family()]
 	if tb == afInvalid {
 		return errors.New("unknown address family", address.Family())

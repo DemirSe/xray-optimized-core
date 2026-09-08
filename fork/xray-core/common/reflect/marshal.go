@@ -177,7 +177,9 @@ func marshalKnownType(v interface{}, ignoreNullValue bool, insertTypeInfo bool) 
 		return ty, true
 	case *cnet.IPOrDomain:
 		if domain := v.(*cnet.IPOrDomain); domain != nil {
-			return domain.AsAddress().String(), true
+			if addr := domain.AsAddress(); addr != nil {
+				return addr.String(), true
+			}
 		}
 		return nil, false
 	case *cnet.PortList:

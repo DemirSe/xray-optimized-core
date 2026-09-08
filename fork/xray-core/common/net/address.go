@@ -211,6 +211,10 @@ func (d *IPOrDomain) AsAddress() Address {
 
 // NewIPOrDomain translates Address to IPOrDomain
 func NewIPOrDomain(addr Address) *IPOrDomain {
+	if addr == nil {
+		errors.LogError(context.Background(), "Unknown Address type.")
+		return nil
+	}
 	switch addr.Family() {
 	case AddressFamilyDomain:
 		return &IPOrDomain{

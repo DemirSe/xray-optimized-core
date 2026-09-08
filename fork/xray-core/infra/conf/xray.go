@@ -120,8 +120,9 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	} else {
 		// Listen on specific IP or Unix Domain Socket
 		receiverSettings.Listen = c.ListenOn.Build()
-		listenDS := c.ListenOn.Family().IsDomain() && (filepath.IsAbs(c.ListenOn.Domain()) || c.ListenOn.Domain()[0] == '@')
-		listenIP := c.ListenOn.Family().IsIP() || (c.ListenOn.Family().IsDomain() && c.ListenOn.Domain() == "localhost")
+		listenDomain := c.ListenOn.Domain()
+		listenDS := c.ListenOn.Family().IsDomain() && (filepath.IsAbs(listenDomain) || (len(listenDomain) > 0 && listenDomain[0] == '@'))
+		listenIP := c.ListenOn.Family().IsIP() || (c.ListenOn.Family().IsDomain() && listenDomain == "localhost")
 		if listenIP {
 			// Listen on specific IP, must set PortList
 			if c.PortList == nil {

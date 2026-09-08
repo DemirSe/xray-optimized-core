@@ -143,25 +143,24 @@ func TestAddressProperty(t *testing.T) {
 }
 
 func TestInvalidAddressConvertion(t *testing.T) {
-	panics := func(f func()) (ret bool) {
-		defer func() {
-			if r := recover(); r != nil {
-				ret = true
-			}
-		}()
-		f()
-		return false
+	// ponytail: misuse no longer panics; Domain() returns "", IP()/AsAddress()/NewIPOrDomain return nil (log kept).
+	if got := ParseAddress("8.8.8.8").Domain(); got != "" {
+		t.Error("ipv4 Domain() should return empty string, got ", got)
 	}
-
-	testCases := []func(){
-		func() { ParseAddress("8.8.8.8").Domain() },
-		func() { ParseAddress("2001:4860:0:2001::68").Domain() },
-		func() { ParseAddress("example.com").IP() },
+	if got := ParseAddress("2001:4860:0:2001::68").Domain(); got != "" {
+		t.Error("ipv6 Domain() should return empty string, got ", got)
 	}
-	for idx, testCase := range testCases {
-		if !panics(testCase) {
-			t.Error("case ", idx, " failed")
-		}
+	if got := ParseAddress("example.com").IP(); got != nil {
+		t.Error("domain IP() should return nil, got ", got)
+	}
+	if got := (&IPOrDomain{}).AsAddress(); got != nil {
+		t.Error("invalid AsAddress() should return nil, got ", got)
+	}
+	if got := NewIPOrDomain(nil); got != nil {
+		t.Error("NewIPOrDomain(nil) should return nil, got ", got)
+	}
+	if got := IPAddress([]byte{1, 2, 3}); got != nil {
+		t.Error("invalid IPAddress() should return nil, got ", got)
 	}
 }
 
