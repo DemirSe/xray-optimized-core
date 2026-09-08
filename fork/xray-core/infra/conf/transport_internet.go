@@ -488,23 +488,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "tcp", nil
 	case "xhttp", "splithttp":
 		return "splithttp", nil
-	case "kcp", "mkcp":
-		return "mkcp", nil
-	case "grpc":
-		errors.PrintNonRemovalDeprecatedFeatureWarning("gRPC transport (with unnecessary costs, etc.)", "XHTTP stream-up H2")
-		return "grpc", nil
-	case "ws", "websocket":
-		errors.PrintNonRemovalDeprecatedFeatureWarning("WebSocket transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
-		return "websocket", nil
-	case "httpupgrade":
-		errors.PrintNonRemovalDeprecatedFeatureWarning("HTTPUpgrade transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
-		return "httpupgrade", nil
 	case "h2", "h3", "http":
 		return "", errors.PrintRemovedFeatureError("HTTP transport (without header padding, etc.)", "XHTTP stream-one H2 & H3")
-	case "quic":
-		return "", errors.PrintRemovedFeatureError("QUIC transport (without web service, etc.)", "XHTTP stream-one H3")
-	case "hysteria":
-		return "hysteria", nil
 	default:
 		return "", errors.New("Config: unknown transport protocol: ", p)
 	}
