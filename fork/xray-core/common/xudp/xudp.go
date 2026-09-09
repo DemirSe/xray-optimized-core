@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -36,7 +35,7 @@ var getBaseKey = sync.OnceValue(func() []byte {
 		if len(k) == 32 {
 			return k
 		}
-		panic(platform.XUDPBaseKey + ": invalid value (BaseKey must be 32 bytes): " + raw + " len " + strconv.Itoa(len(k)))
+		panic(platform.XUDPBaseKey + ": invalid value (BaseKey must be 32 bytes): " + raw + " len " + fmt.Sprint(len(k)))
 	}
 	return key
 })
