@@ -5,12 +5,9 @@ go 1.26
 require (
 	github.com/apernet/quic-go v0.59.1-0.20260217092621-db4786c77a22
 	github.com/cloudflare/circl v1.6.3
-	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344
-	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.7.0
 	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/miekg/dns v1.1.72
-	github.com/pelletier/go-toml v1.9.5
 	github.com/pires/go-proxyproto v0.11.0
 	github.com/refraction-networking/utls v1.8.3-0.20260301010127-aa6edf4b11af
 	github.com/sagernet/sing v0.5.1
@@ -20,7 +17,6 @@ require (
 	golang.org/x/net v0.52.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.42.0
-	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	lukechampine.com/blake3 v1.4.1
 )
@@ -35,7 +31,5 @@ require (
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/tools v0.42.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
