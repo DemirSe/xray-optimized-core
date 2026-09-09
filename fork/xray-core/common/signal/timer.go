@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-type ActivityUpdater interface {
-	Update()
-}
-
 // ActivityTimer cancels its context after timeout without Update.
 // ponytail: single time.Timer replaces the task.Periodic checker;
 // same API, exact timeout instead of up-to-2x check granularity.
@@ -64,7 +60,7 @@ func (t *ActivityTimer) SetTimeout(timeout time.Duration) {
 	t.Update()
 }
 
-func CancelAfterInactivity(ctx context.Context, cancel context.CancelFunc, timeout time.Duration) *ActivityTimer {
+func CancelAfterInactivity(cancel context.CancelFunc, timeout time.Duration) *ActivityTimer {
 	timer := &ActivityTimer{
 		onTimeout: cancel,
 	}

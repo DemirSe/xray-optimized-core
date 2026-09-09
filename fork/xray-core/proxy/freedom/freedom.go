@@ -179,7 +179,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 
 	plcy := h.policy()
 	ctx, cancel := context.WithCancel(ctx)
-	timer := signal.CancelAfterInactivity(ctx, func() {
+	timer := signal.CancelAfterInactivity(func() {
 		cancel()
 		if newCancel != nil {
 			newCancel()
@@ -249,7 +249,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		ctx = newCtx
 	}
 
-	if err := task.Run(ctx, requestDone, task.OnSuccess(responseDone, task.Close(output))); err != nil {
+	if err := task.Run(ctx, requestDone, task.OnSuccess(responseDone, func() error { return common.Close(output) })); err != nil {
 		return errors.New("connection ends").Base(err)
 	}
 

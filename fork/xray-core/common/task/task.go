@@ -40,12 +40,6 @@ func Run(ctx context.Context, tasks ...func() error) error {
 		}(task)
 	}
 
-	/*
-		if altctx := ctx.Value("altctx"); altctx != nil {
-			ctx = altctx.(context.Context)
-		}
-	*/
-
 	for i := 0; i < n; i++ {
 		select {
 		case err := <-done:
@@ -55,12 +49,6 @@ func Run(ctx context.Context, tasks ...func() error) error {
 		case <-s:
 		}
 	}
-
-	/*
-		if cancel := ctx.Value("cancel"); cancel != nil {
-			cancel.(context.CancelFunc)()
-		}
-	*/
 
 	return nil
 }

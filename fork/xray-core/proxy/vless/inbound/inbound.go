@@ -414,7 +414,7 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 			}
 
 			ctx, cancel := context.WithCancel(ctx)
-			timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
+			timer := signal.CancelAfterInactivity(cancel, sessionPolicy.Timeouts.ConnectionIdle)
 			ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
 
 			var conn net.Conn
@@ -513,7 +513,7 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 				return nil
 			}
 
-			if err := task.Run(ctx, task.OnSuccess(postRequest, task.Close(serverWriter)), task.OnSuccess(getResponse, task.Close(writer))); err != nil {
+			if err := task.Run(ctx, task.OnSuccess(postRequest, func() error { return common.Close(serverWriter) }), task.OnSuccess(getResponse, func() error { return common.Close(writer) })); err != nil {
 				common.Interrupt(serverReader)
 				common.Interrupt(serverWriter)
 				return errors.New("fallback ends").Base(err).AtInfo()

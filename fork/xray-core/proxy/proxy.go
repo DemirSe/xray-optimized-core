@@ -791,7 +791,7 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 	}
 }
 
-func readV(ctx context.Context, reader buf.Reader, writer buf.Writer, timer signal.ActivityUpdater, readCounter stats.Counter) error {
+func readV(ctx context.Context, reader buf.Reader, writer buf.Writer, timer *signal.ActivityTimer, readCounter stats.Counter) error {
 	errors.LogDebug(ctx, "CopyRawConn (maybe) readv")
 	if err := buf.Copy(reader, writer, buf.UpdateActivity(timer), buf.AddToStatCounter(readCounter)); err != nil {
 		return errors.New("failed to process response").Base(err)

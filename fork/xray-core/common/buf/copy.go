@@ -24,7 +24,7 @@ type SizeCounter struct {
 type CopyOption func(*copyHandler)
 
 // UpdateActivity is a CopyOption to update activity on each data copy operation.
-func UpdateActivity(timer signal.ActivityUpdater) CopyOption {
+func UpdateActivity(timer *signal.ActivityTimer) CopyOption {
 	return func(handler *copyHandler) {
 		handler.onData = append(handler.onData, func(MultiBuffer) {
 			timer.Update()

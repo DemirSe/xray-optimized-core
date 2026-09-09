@@ -255,7 +255,7 @@ func NewPortalWorker(client *mux.ClientWorker) (*PortalWorker, error) {
 		client: client,
 		reader: downlinkReader,
 		writer: uplinkWriter,
-		timer:  signal.CancelAfterInactivity(ctx, terminate, 24*time.Hour), // // prevent leak
+		timer:  signal.CancelAfterInactivity(terminate, 24*time.Hour), // // prevent leak
 	}
 	w.control = &task.Periodic{
 		Execute:  w.heartbeat,

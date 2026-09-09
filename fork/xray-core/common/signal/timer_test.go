@@ -11,7 +11,7 @@ import (
 
 func TestActivityTimer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	timer := CancelAfterInactivity(ctx, cancel, time.Second*4)
+	timer := CancelAfterInactivity(cancel, time.Second*4)
 	time.Sleep(time.Second * 6)
 	if ctx.Err() == nil {
 		t.Error("expected some error, but got nil")
@@ -21,7 +21,7 @@ func TestActivityTimer(t *testing.T) {
 
 func TestActivityTimerUpdate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	timer := CancelAfterInactivity(ctx, cancel, time.Second*10)
+	timer := CancelAfterInactivity(cancel, time.Second*10)
 	time.Sleep(time.Second * 3)
 	if ctx.Err() != nil {
 		t.Error("expected nil, but got ", ctx.Err().Error())
@@ -36,7 +36,7 @@ func TestActivityTimerUpdate(t *testing.T) {
 
 func TestActivityTimerNonBlocking(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	timer := CancelAfterInactivity(ctx, cancel, 0)
+	timer := CancelAfterInactivity(cancel, 0)
 	time.Sleep(time.Second * 1)
 	select {
 	case <-ctx.Done():
@@ -50,7 +50,7 @@ func TestActivityTimerNonBlocking(t *testing.T) {
 
 func TestActivityTimerZeroTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	timer := CancelAfterInactivity(ctx, cancel, 0)
+	timer := CancelAfterInactivity(cancel, 0)
 	select {
 	case <-ctx.Done():
 	default:

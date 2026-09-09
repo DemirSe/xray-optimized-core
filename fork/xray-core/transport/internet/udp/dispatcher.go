@@ -98,7 +98,7 @@ func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) (*
 		cancel: cancel,
 	}
 
-	entry.timer = signal.CancelAfterInactivity(ctx, entry.terminate, time.Minute)
+	entry.timer = signal.CancelAfterInactivity(entry.terminate, time.Minute)
 	v.conn = entry
 	go handleInput(ctx, entry, dest, v.callback, v.callClose)
 	return entry, nil

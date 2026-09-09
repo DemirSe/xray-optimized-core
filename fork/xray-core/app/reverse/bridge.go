@@ -134,7 +134,7 @@ func NewBridgeWorker(domain string, tag string, d routing.Dispatcher) (*BridgeWo
 	terminate := func() {
 		worker.Close()
 	}
-	w.Timer = signal.CancelAfterInactivity(ctx, terminate, 60*time.Second)
+	w.Timer = signal.CancelAfterInactivity(terminate, 60*time.Second)
 	return w, nil
 }
 

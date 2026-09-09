@@ -33,7 +33,3 @@ func DialTaggedOutbound(ctx context.Context, dispatcher routing.Dispatcher, dest
 	}
 	return cnc.NewConnection(cnc.ConnectionInputMulti(r.Writer), readerOpt), nil
 }
-
-func init() {
-	Dialer = DialTaggedOutbound
-}
