@@ -147,7 +147,7 @@ var useReadv bool
 
 func init() {
 	const defaultFlagValue = "NOT_DEFINED_AT_ALL"
-	value := platform.NewEnvFlag(platform.UseReadV).GetValue(defaultFlagValue)
+	value := platform.GetEnv(platform.UseReadV, defaultFlagValue)
 	switch value {
 	case defaultFlagValue, "auto", "enable":
 		useReadv = true

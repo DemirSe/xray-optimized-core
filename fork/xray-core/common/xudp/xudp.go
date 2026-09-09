@@ -30,7 +30,7 @@ var AddrParser = protocol.NewAddressParser(
 var getBaseKey = sync.OnceValue(func() []byte {
 	key := make([]byte, 32)
 	rand.Read(key)
-	if raw := platform.NewEnvFlag(platform.XUDPBaseKey).GetValue(""); raw != "" {
+	if raw := platform.GetEnv(platform.XUDPBaseKey, ""); raw != "" {
 		k, _ := base64.RawURLEncoding.DecodeString(raw)
 		if len(k) == 32 {
 			return k
@@ -50,7 +50,7 @@ func GetGlobalID(ctx context.Context) (globalID [8]byte) {
 		h.Write([]byte(inbound.Source.String()))
 		copy(globalID[:], h.Sum(nil))
 		// ponytail: xray.xudp.show read at use instead of init snapshot.
-		if strings.ToLower(platform.NewEnvFlag(platform.XUDPLog).GetValue("")) == "true" {
+		if strings.ToLower(platform.GetEnv(platform.XUDPLog, "")) == "true" {
 			errors.LogInfo(ctx, fmt.Sprintf("XUDP inbound.Source.String(): %v\tglobalID: %v\n", inbound.Source.String(), globalID))
 		}
 	}

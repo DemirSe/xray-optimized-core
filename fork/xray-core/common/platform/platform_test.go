@@ -10,14 +10,6 @@ import (
 	. "github.com/xtls/xray-core/common/platform"
 )
 
-func TestEnvFlag(t *testing.T) {
-	if v := (EnvFlag{
-		Name: "xxxxx.y",
-	}.GetValue("dflt")); v != "dflt" {
-		t.Error("env value: ", v)
-	}
-}
-
 func TestGetAssetLocation(t *testing.T) {
 	exec, err := os.Executable()
 	if err := common.Must(err); err != nil {

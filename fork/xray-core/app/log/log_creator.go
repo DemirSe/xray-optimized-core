@@ -49,11 +49,11 @@ func init() {
 	}
 
 	if err := RegisterHandlerCreator(LogType_File, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
-		creator, err := log.CreateFileLogWriter(options.Path)
+		file, err := os.OpenFile(options.Path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			return nil, err
 		}
-		return log.NewLogger(creator), nil
+		return log.NewLogger(file), nil
 	}); err != nil {
 		panic(err)
 	}

@@ -22,12 +22,12 @@ func TestFileLogger(t *testing.T) {
 	}
 	defer os.Remove(path)
 
-	creator, err := CreateFileLogWriter(path)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err := common.Must(err); err != nil {
 		t.Fatal(err)
 	}
 
-	handler := NewLogger(creator)
+	handler := NewLogger(file)
 	handler.Handle(&GeneralMessage{Content: "Test Log"})
 	time.Sleep(2 * time.Second)
 

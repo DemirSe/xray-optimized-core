@@ -42,7 +42,7 @@ func init() {
 		panic(err)
 	}
 	const defaultFlagValue = "NOT_DEFINED_AT_ALL"
-	value := platform.NewEnvFlag(platform.UseFreedomSplice).GetValue(defaultFlagValue)
+	value := platform.GetEnv(platform.UseFreedomSplice, defaultFlagValue)
 	switch value {
 	case defaultFlagValue, "auto", "enable":
 		useSplice = true

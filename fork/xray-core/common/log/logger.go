@@ -98,15 +98,6 @@ func (l *generalLogger) Close() error {
 	return nil
 }
 
-// CreateFileLogWriter opens the log file once and returns it as an io.Writer.
-func CreateFileLogWriter(path string) (io.Writer, error) {
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
-}
-
 func init() {
 	RegisterHandler(NewLogger(os.Stdout))
 }

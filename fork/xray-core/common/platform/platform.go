@@ -26,23 +26,12 @@ const (
 	MphCachePath = "xray.mph.cache"
 )
 
-type EnvFlag struct {
-	Name string
-}
-
-func NewEnvFlag(name string) EnvFlag {
-	return EnvFlag{
-		Name: name,
-	}
-}
-
 // ponytail: single os.Getenv; no XRAY_* alt-name knob is set live (verified),
 // empty env falls back to default like an unset one.
-func (f EnvFlag) GetValue(defaultValue string) string {
-	if v := os.Getenv(f.Name); v != "" {
+func GetEnv(key, defaultValue string) string {
+	if v := os.Getenv(key); v != "" {
 		return v
 	}
-
 	return defaultValue
 }
 
@@ -55,12 +44,12 @@ func getExecutableDir() string {
 }
 
 func GetConfigurationPath() string {
-	configPath := NewEnvFlag(ConfigLocation).GetValue(getExecutableDir())
+	configPath := GetEnv(ConfigLocation, getExecutableDir())
 	return filepath.Join(configPath, "config.json")
 }
 
 // GetConfDirPath reads "xray.location.confdir"
 func GetConfDirPath() string {
-	configPath := NewEnvFlag(ConfdirLocation).GetValue("")
+	configPath := GetEnv(ConfdirLocation, "")
 	return configPath
 }
