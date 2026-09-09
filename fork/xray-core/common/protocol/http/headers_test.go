@@ -1,74 +1,11 @@
 package http_test
 
 import (
-	"bufio"
-	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/net"
 	. "github.com/xtls/xray-core/common/protocol/http"
 )
-
-func TestHopByHopHeadersRemoving(t *testing.T) {
-	rawRequest := `GET /pkg/net/http/ HTTP/1.1
-Host: golang.org
-Connection: keep-alive,Foo, Bar
-Foo: foo
-Bar: bar
-Proxy-Connection: keep-alive
-Proxy-Authenticate: abc
-Accept-Encoding: gzip
-Accept-Charset: ISO-8859-1,UTF-8;q=0.7,*;q=0.7
-Cache-Control: no-cache
-Accept-Language: de,en;q=0.7,en-us;q=0.3
-
-`
-	b := bufio.NewReader(strings.NewReader(rawRequest))
-	req, err := http.ReadRequest(b)
-	if err := common.Must(err); err != nil {
-		t.Fatal(err)
-	}
-	headers := []struct {
-		Key   string
-		Value string
-	}{
-		{
-			Key:   "Foo",
-			Value: "foo",
-		},
-		{
-			Key:   "Bar",
-			Value: "bar",
-		},
-		{
-			Key:   "Connection",
-			Value: "keep-alive,Foo, Bar",
-		},
-		{
-			Key:   "Proxy-Connection",
-			Value: "keep-alive",
-		},
-		{
-			Key:   "Proxy-Authenticate",
-			Value: "abc",
-		},
-	}
-	for _, header := range headers {
-		if v := req.Header.Get(header.Key); v != header.Value {
-			t.Error("header ", header.Key, " = ", v, " want ", header.Value)
-		}
-	}
-
-	RemoveHopByHopHeaders(req.Header)
-
-	for _, header := range []string{"Connection", "Foo", "Bar", "Proxy-Connection", "Proxy-Authenticate"} {
-		if v := req.Header.Get(header); v != "" {
-			t.Error("header ", header, " = ", v)
-		}
-	}
-}
 
 func TestParseHost(t *testing.T) {
 	testCases := []struct {

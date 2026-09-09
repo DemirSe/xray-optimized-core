@@ -1,36 +1,11 @@
 package http
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/xtls/xray-core/common/net"
 )
-
-// RemoveHopByHopHeaders removes hop by hop headers in http header list.
-func RemoveHopByHopHeaders(header http.Header) {
-	// Strip hop-by-hop header based on RFC:
-	// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1
-	// https://www.mnot.net/blog/2011/07/11/what_proxies_must_do
-
-	header.Del("Proxy-Connection")
-	header.Del("Proxy-Authenticate")
-	header.Del("Proxy-Authorization")
-	header.Del("TE")
-	header.Del("Trailers")
-	header.Del("Transfer-Encoding")
-	header.Del("Upgrade")
-
-	connections := header.Get("Connection")
-	header.Del("Connection")
-	if connections == "" {
-		return
-	}
-	for _, h := range strings.Split(connections, ",") {
-		header.Del(strings.TrimSpace(h))
-	}
-}
 
 // ParseHost splits host and port from a raw string. Default port is used when raw string doesn't contain port.
 func ParseHost(rawHost string, defaultPort net.Port) (net.Destination, error) {
