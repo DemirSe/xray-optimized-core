@@ -39,31 +39,6 @@ func (PlainChunkSizeParser) Decode(b []byte) (uint16, error) {
 	return binary.BigEndian.Uint16(b), nil
 }
 
-type AEADChunkSizeParser struct {
-	Auth *AEADAuthenticator
-}
-
-func (p *AEADChunkSizeParser) SizeBytes() int32 {
-	return 2 + int32(p.Auth.Overhead())
-}
-
-func (p *AEADChunkSizeParser) Encode(size uint16, b []byte) []byte {
-	binary.BigEndian.PutUint16(b, size-uint16(p.Auth.Overhead()))
-	b, err := p.Auth.Seal(b[:0], b[:2])
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-func (p *AEADChunkSizeParser) Decode(b []byte) (uint16, error) {
-	b, err := p.Auth.Open(b[:0], b)
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint16(b) + uint16(p.Auth.Overhead()), nil
-}
-
 type ChunkStreamReader struct {
 	sizeDecoder ChunkSizeDecoder
 	reader      *buf.BufferedReader
@@ -124,38 +99,4 @@ func (r *ChunkStreamReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		return mb, nil
 	}
 	return nil, err
-}
-
-type ChunkStreamWriter struct {
-	sizeEncoder ChunkSizeEncoder
-	writer      buf.Writer
-}
-
-func NewChunkStreamWriter(sizeEncoder ChunkSizeEncoder, writer io.Writer) *ChunkStreamWriter {
-	return &ChunkStreamWriter{
-		sizeEncoder: sizeEncoder,
-		writer:      buf.NewWriter(writer),
-	}
-}
-
-func (w *ChunkStreamWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
-	const sliceSize = 8192
-	mbLen := mb.Len()
-	mb2Write := make(buf.MultiBuffer, 0, mbLen/buf.Size+mbLen/sliceSize+2)
-
-	for {
-		mb2, slice := buf.SplitSize(mb, sliceSize)
-		mb = mb2
-
-		b := buf.New()
-		w.sizeEncoder.Encode(uint16(slice.Len()), b.Extend(w.sizeEncoder.SizeBytes()))
-		mb2Write = append(mb2Write, b)
-		mb2Write = append(mb2Write, slice...)
-
-		if mb.IsEmpty() {
-			break
-		}
-	}
-
-	return w.writer.WriteMultiBuffer(mb2Write)
 }
