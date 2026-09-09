@@ -13,7 +13,7 @@ import (
 )
 
 // newFakeDNSSniffer Creates a Fake DNS metadata sniffer
-func newFakeDNSSniffer(ctx context.Context) (protocolSnifferWithMetadata, error) {
+func newFakeDNSSniffer(ctx context.Context) (protocolSnifferWithMetadata, dns.FakeDNSEngine, error) {
 	var fakeDNSEngine dns.FakeDNSEngine
 	{
 		fakeDNSEngineFeat := core.MustFromContext(ctx).GetFeature((*dns.FakeDNSEngine)(nil))
@@ -24,7 +24,7 @@ func newFakeDNSSniffer(ctx context.Context) (protocolSnifferWithMetadata, error)
 
 	if fakeDNSEngine == nil {
 		errNotInit := errors.New("FakeDNSEngine is not initialized, but such a sniffer is used").AtError()
-		return protocolSnifferWithMetadata{}, errNotInit
+		return protocolSnifferWithMetadata{}, nil, errNotInit
 	}
 	return protocolSnifferWithMetadata{protocolSniffer: func(ctx context.Context, bytes []byte) (SniffResult, error) {
 		outbounds := session.OutboundsFromContext(ctx)
@@ -37,16 +37,8 @@ func newFakeDNSSniffer(ctx context.Context) (protocolSnifferWithMetadata, error)
 			}
 		}
 
-		if ipAddressInRangeValueI := ctx.Value(ipAddressInRange); ipAddressInRangeValueI != nil {
-			ipAddressInRangeValue := ipAddressInRangeValueI.(*ipAddressInRangeOpt)
-			if fkr0, ok := fakeDNSEngine.(dns.FakeDNSEngineRev0); ok {
-				inPool := fkr0.IsIPInIPPool(ob.Target.Address)
-				ipAddressInRangeValue.addressInRange = &inPool
-			}
-		}
-
 		return nil, common.ErrNoClue
-	}, metadataSniffer: true}, nil
+	}, metadataSniffer: true}, fakeDNSEngine, nil
 }
 
 type fakeDNSSniffResult struct {
@@ -59,14 +51,6 @@ func (fakeDNSSniffResult) Protocol() string {
 
 func (f fakeDNSSniffResult) Domain() string {
 	return f.domainName
-}
-
-type fakeDNSExtraOpts int
-
-const ipAddressInRange fakeDNSExtraOpts = 1
-
-type ipAddressInRangeOpt struct {
-	addressInRange *bool
 }
 
 type DNSThenOthersSniffResult struct {
@@ -86,34 +70,34 @@ func (f DNSThenOthersSniffResult) Domain() string {
 	return f.domainName
 }
 
-func newFakeDNSThenOthers(ctx context.Context, fakeDNSSniffer protocolSnifferWithMetadata, others []protocolSnifferWithMetadata) (
+func newFakeDNSThenOthers(fakeDNSSniffer protocolSnifferWithMetadata, fakeDNSEngine dns.FakeDNSEngine, others []protocolSnifferWithMetadata) (
 	protocolSnifferWithMetadata, error,
 ) { // nolint: unparam
-	// ctx may be used in the future
-	_ = ctx
 	return protocolSnifferWithMetadata{
 		protocolSniffer: func(ctx context.Context, bytes []byte) (SniffResult, error) {
-			ipAddressInRangeValue := &ipAddressInRangeOpt{}
-			ctx = context.WithValue(ctx, ipAddressInRange, ipAddressInRangeValue)
 			result, err := fakeDNSSniffer.protocolSniffer(ctx, bytes)
 			if err == nil {
 				return result, nil
 			}
-			if ipAddressInRangeValue.addressInRange != nil {
-				if *ipAddressInRangeValue.addressInRange {
-					for _, v := range others {
-						if v.metadataSniffer || bytes != nil {
-							if result, err := v.protocolSniffer(ctx, bytes); err == nil {
-								return DNSThenOthersSniffResult{domainName: result.Domain(), protocolOriginalName: result.Protocol()}, nil
-							}
-						}
-					}
+			// ponytail: direct range check via engine instead of ctx-smuggled opt
+			if fkr0, ok := fakeDNSEngine.(dns.FakeDNSEngineRev0); ok {
+				outbounds := session.OutboundsFromContext(ctx)
+				ob := outbounds[len(outbounds)-1]
+				if !fkr0.IsIPInIPPool(ob.Target.Address) {
+					errors.LogDebug(ctx, "ip address not in fake dns range, return as is")
 					return nil, common.ErrNoClue
 				}
-				errors.LogDebug(ctx, "ip address not in fake dns range, return as is")
+			} else {
+				errors.LogWarning(ctx, "fake dns sniffer did not set address in range option, assume false.")
 				return nil, common.ErrNoClue
 			}
-			errors.LogWarning(ctx, "fake dns sniffer did not set address in range option, assume false.")
+			for _, v := range others {
+				if v.metadataSniffer || bytes != nil {
+					if result, err := v.protocolSniffer(ctx, bytes); err == nil {
+						return DNSThenOthersSniffResult{domainName: result.Domain(), protocolOriginalName: result.Protocol()}, nil
+					}
+				}
+			}
 			return nil, common.ErrNoClue
 		},
 		metadataSniffer: false,
