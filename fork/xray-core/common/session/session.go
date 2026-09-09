@@ -81,8 +81,11 @@ type Content struct {
 
 	SniffingRequest SniffingRequest
 
-	// HTTP traffic sniffed headers
-	Attributes map[string]string
+	// ForcedOutboundTag carries the platform-initialized detour tag.
+	// ponytail: was map[string]string + 2 methods; HTTP-sniffed headers
+	// were write-only (no repo-wide reader) and routing GetAttributes has
+	// zero callers, so the map is dropped. Only forcedOutboundTag is read.
+	ForcedOutboundTag string
 
 	// SkipDNSResolve is set from DNS module. the DOH remote server maybe a domain name, this prevents cycle resolving dead loop
 	SkipDNSResolve bool
@@ -92,20 +95,4 @@ type Content struct {
 type Sockopt struct {
 	// Mark of the socket connection.
 	Mark int32
-}
-
-// SetAttribute attaches additional string attributes to content.
-func (c *Content) SetAttribute(name string, value string) {
-	if c.Attributes == nil {
-		c.Attributes = make(map[string]string)
-	}
-	c.Attributes[name] = value
-}
-
-// Attribute retrieves additional string attributes from content.
-func (c *Content) Attribute(name string) string {
-	if c.Attributes == nil {
-		return ""
-	}
-	return c.Attributes[name]
 }

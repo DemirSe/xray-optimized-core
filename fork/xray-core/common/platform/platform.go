@@ -40,29 +40,20 @@ func NewEnvFlag(name string) EnvFlag {
 	}
 }
 
-func (f EnvFlag) GetValue(defaultValue func() string) string {
+// ponytail: was GetValue(func() string); plain string default at all call sites.
+func (f EnvFlag) GetValue(defaultValue string) string {
 	if v, found := os.LookupEnv(f.Name); found {
 		return v
 	}
-	if len(f.AltName) > 0 {
-		if v, found := os.LookupEnv(f.AltName); found {
-			return v
-		}
+	if v, found := os.LookupEnv(f.AltName); found {
+		return v
 	}
 
-	return defaultValue()
+	return defaultValue
 }
 
 func (f EnvFlag) GetValueAsInt(defaultValue int) int {
-	useDefaultValue := false
-	s := f.GetValue(func() string {
-		useDefaultValue = true
-		return ""
-	})
-	if useDefaultValue {
-		return defaultValue
-	}
-	v, err := strconv.ParseInt(s, 10, 32)
+	v, err := strconv.ParseInt(f.GetValue(""), 10, 32)
 	if err != nil {
 		return defaultValue
 	}
@@ -82,12 +73,12 @@ func getExecutableDir() string {
 }
 
 func GetConfigurationPath() string {
-	configPath := NewEnvFlag(ConfigLocation).GetValue(getExecutableDir)
+	configPath := NewEnvFlag(ConfigLocation).GetValue(getExecutableDir())
 	return filepath.Join(configPath, "config.json")
 }
 
 // GetConfDirPath reads "xray.location.confdir"
 func GetConfDirPath() string {
-	configPath := NewEnvFlag(ConfdirLocation).GetValue(func() string { return "" })
+	configPath := NewEnvFlag(ConfdirLocation).GetValue("")
 	return configPath
 }

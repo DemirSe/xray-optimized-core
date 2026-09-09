@@ -50,8 +50,8 @@ func SubContextFromMuxInbound(ctx context.Context) context.Context {
 	newContent := Content{}
 	if content != nil {
 		newContent = *content
-		if content.Attributes != nil {
-			panic("content.Attributes != nil")
+		if content.ForcedOutboundTag != "" {
+			panic("content.ForcedOutboundTag != \"\"")
 		}
 	}
 	return ContextWithContent(ContextWithOutbounds(ctx, newOutbounds), &newContent)
@@ -101,14 +101,14 @@ func GetForcedOutboundTagFromContext(ctx context.Context) string {
 	if ContentFromContext(ctx) == nil {
 		return ""
 	}
-	return ContentFromContext(ctx).Attribute("forcedOutboundTag")
+	return ContentFromContext(ctx).ForcedOutboundTag
 }
 
 func SetForcedOutboundTagToContext(ctx context.Context, tag string) context.Context {
 	if contentFromContext := ContentFromContext(ctx); contentFromContext == nil {
 		ctx = ContextWithContent(ctx, &Content{})
 	}
-	ContentFromContext(ctx).SetAttribute("forcedOutboundTag", tag)
+	ContentFromContext(ctx).ForcedOutboundTag = tag
 	return ctx
 }
 

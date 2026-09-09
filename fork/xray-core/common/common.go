@@ -3,8 +3,6 @@
 package common
 
 import (
-	"reflect"
-
 	"github.com/xtls/xray-core/common/errors"
 )
 
@@ -16,15 +14,4 @@ var ErrNoClue = errors.New("not enough information for making a decision")
 // Error2 returns the err from the 2nd parameter.
 func Error2(v interface{}, err error) error {
 	return err
-}
-
-// CloseIfExists call obj.Close() if obj is not nil.
-func CloseIfExists(obj any) error {
-	if obj != nil {
-		v := reflect.ValueOf(obj)
-		if !v.IsNil() {
-			return Close(obj)
-		}
-	}
-	return nil
 }

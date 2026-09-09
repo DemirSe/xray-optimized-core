@@ -137,11 +137,10 @@ func (ctx *Context) GetVlessRoute() net.Port {
 }
 
 // GetAttributes implements routing.Context.
+// ponytail: Content.Attributes map was dropped (write-only HTTP headers, zero
+// repo-wide readers); no caller of GetAttributes exists, so return nil.
 func (ctx *Context) GetAttributes() map[string]string {
-	if ctx.Content == nil {
-		return nil
-	}
-	return ctx.Content.Attributes
+	return nil
 }
 
 // GetSkipDNSResolve implements routing.Context.
