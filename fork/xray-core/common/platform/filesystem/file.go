@@ -1,7 +1,6 @@
 package filesystem
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 
@@ -9,14 +8,8 @@ import (
 	"github.com/xtls/xray-core/common/platform"
 )
 
-type FileReaderFunc func(path string) (io.ReadCloser, error)
-
-var NewFileReader FileReaderFunc = func(path string) (io.ReadCloser, error) {
-	return os.Open(path)
-}
-
 func ReadFile(path string) ([]byte, error) {
-	reader, err := NewFileReader(path)
+	reader, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
