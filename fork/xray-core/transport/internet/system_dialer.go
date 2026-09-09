@@ -166,28 +166,6 @@ func (c *PacketConnWrapper) RemoteAddr() net.Addr {
 	return c.Dest
 }
 
-type SystemDialerAdapter interface {
-	Dial(network string, address string) (net.Conn, error)
-}
-
-type SimpleSystemDialer struct {
-	adapter SystemDialerAdapter
-}
-
-func WithAdapter(dialer SystemDialerAdapter) SystemDialer {
-	return &SimpleSystemDialer{
-		adapter: dialer,
-	}
-}
-
-func (v *SimpleSystemDialer) Dial(ctx context.Context, src net.Address, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
-	return v.adapter.Dial(dest.Network.SystemString(), dest.NetAddr())
-}
-
-func (d *SimpleSystemDialer) DestIpAddress() net.IP {
-	return nil
-}
-
 // UseAlternativeSystemDialer replaces the current system dialer with a given one.
 // Caller must ensure there is no race condition.
 //

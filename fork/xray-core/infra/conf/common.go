@@ -14,27 +14,18 @@ import (
 
 type StringList []string
 
-func NewStringList(raw []string) *StringList {
-	list := StringList(raw)
-	return &list
-}
-
-func (v StringList) Len() int {
-	return len(v)
-}
-
 // UnmarshalJSON implements encoding/json.Unmarshaler.UnmarshalJSON
 func (v *StringList) UnmarshalJSON(data []byte) error {
 	var strarray []string
 	if err := json.Unmarshal(data, &strarray); err == nil {
-		*v = *NewStringList(strarray)
+		*v = StringList(strarray)
 		return nil
 	}
 
 	var rawstr string
 	if err := json.Unmarshal(data, &rawstr); err == nil {
 		strlist := strings.Split(rawstr, ",")
-		*v = *NewStringList(strlist)
+		*v = StringList(strlist)
 		return nil
 	}
 	return errors.New("unknown format of a string list: " + string(data))
