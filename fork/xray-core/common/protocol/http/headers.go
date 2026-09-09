@@ -8,20 +8,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 )
 
-// ParseXForwardedFor parses X-Forwarded-For header in http headers, and return the IP list in it.
-func ParseXForwardedFor(header http.Header) []net.Address {
-	xff := header.Get("X-Forwarded-For")
-	if xff == "" {
-		return nil
-	}
-	list := strings.Split(xff, ",")
-	addrs := make([]net.Address, 0, len(list))
-	for _, proxy := range list {
-		addrs = append(addrs, net.ParseAddress(proxy))
-	}
-	return addrs
-}
-
 // RemoveHopByHopHeaders removes hop by hop headers in http header list.
 func RemoveHopByHopHeaders(header http.Header) {
 	// Strip hop-by-hop header based on RFC:

@@ -51,12 +51,6 @@ func Authority(isCA bool) Option {
 	}
 }
 
-func NotBefore(t time.Time) Option {
-	return func(c *x509.Certificate) {
-		c.NotBefore = t
-	}
-}
-
 func NotAfter(t time.Time) Option {
 	return func(c *x509.Certificate) {
 		c.NotAfter = t
@@ -87,12 +81,13 @@ func Organization(org string) Option {
 	}
 }
 
-func MustGenerate(parent *Certificate, opts ...Option) (*Certificate, [32]byte) {
+func MustGenerate(parent *Certificate, opts ...Option) (*Certificate, []byte) {
 	cert, err := Generate(parent, opts...)
 	if err != nil {
 		panic(err)
 	}
-	return cert, sha256.Sum256(cert.Certificate)
+	sum := sha256.Sum256(cert.Certificate)
+	return cert, sum[:]
 }
 
 func publicKey(priv interface{}) interface{} {

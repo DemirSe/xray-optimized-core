@@ -18,10 +18,6 @@ type ChunkStreamReader struct {
 	numChunk     uint32
 }
 
-func NewChunkStreamReader(reader io.Reader) *ChunkStreamReader {
-	return NewChunkStreamReaderWithChunkCount(reader, 0)
-}
-
 func NewChunkStreamReaderWithChunkCount(reader io.Reader, maxNumChunk uint32) *ChunkStreamReader {
 	r := &ChunkStreamReader{
 		buffer:      make([]byte, 2),
