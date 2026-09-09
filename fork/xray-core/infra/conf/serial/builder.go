@@ -2,7 +2,6 @@ package serial
 
 import (
 	"context"
-	"io"
 
 	"github.com/xtls/xray-core/common/errors"
 	creflect "github.com/xtls/xray-core/common/reflect"
@@ -31,7 +30,7 @@ func mergeConfigs(files []*core.ConfigSource) (*conf.Config, error) {
 		if err != nil {
 			return nil, errors.New("failed to read config: ", file).Base(err)
 		}
-		c, err := ReaderDecoderByFormat[file.Format](r)
+		c, err := DecodeJSONConfig(r)
 		if err != nil {
 			return nil, errors.New("failed to decode config: ", file).Base(err)
 		}
@@ -52,13 +51,7 @@ func BuildConfig(files []*core.ConfigSource) (*core.Config, error) {
 	return config.Build()
 }
 
-type readerDecoder func(io.Reader) (*conf.Config, error)
-
-var ReaderDecoderByFormat = make(map[string]readerDecoder)
-
 func init() {
-	ReaderDecoderByFormat["json"] = DecodeJSONConfig
-
 	core.ConfigBuilderForFiles = BuildConfig
 	core.ConfigMergedFormFiles = MergeConfigFromFiles
 }

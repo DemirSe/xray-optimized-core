@@ -5,7 +5,12 @@ import (
 	"strings"
 
 	"github.com/xtls/xray-core/common/errors"
+	"google.golang.org/protobuf/proto"
 )
+
+type Buildable interface {
+	Build() (proto.Message, error)
+}
 
 type ConfigCreator func() interface{}
 
