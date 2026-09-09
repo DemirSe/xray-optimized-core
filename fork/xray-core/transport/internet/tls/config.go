@@ -557,7 +557,7 @@ const (
 )
 
 func verifyChain(certs []*x509.Certificate, pinnedPeerCertSha256 [][]byte) (verifyResult, *x509.Certificate) {
-	leafHash := GenerateCertHash(certs[0])
+	leafHash := GenerateCertHash(certs[0].Raw)
 	for _, c := range pinnedPeerCertSha256 {
 		if hmac.Equal(leafHash, c) {
 			return foundLeaf, nil
@@ -565,7 +565,7 @@ func verifyChain(certs []*x509.Certificate, pinnedPeerCertSha256 [][]byte) (veri
 	}
 	certs = certs[1:] // skip leaf
 	for _, cert := range certs {
-		certHash := GenerateCertHash(cert)
+		certHash := GenerateCertHash(cert.Raw)
 		for _, c := range pinnedPeerCertSha256 {
 			if hmac.Equal(certHash, c) {
 				if cert.IsCA {

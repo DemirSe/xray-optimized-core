@@ -3,6 +3,7 @@ package tls
 import (
 	"bytes"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -67,7 +68,7 @@ func executeHash(cmd *base.Command, args []string) {
 	}
 	tabWriter := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for i, cert := range certs {
-		hash := GenerateCertHashHex(cert)
+		hash := hex.EncodeToString(GenerateCertHash(cert.Raw))
 		if i == 0 {
 			fmt.Fprintf(tabWriter, "Leaf SHA256:\t%s\n", hash)
 		} else {

@@ -13,29 +13,28 @@ type PacketHeader interface {
 	Serialize([]byte)
 }
 
-func CreatePacketHeader(config interface{}) (PacketHeader, error) {
-	header, err := common.CreateObject(context.Background(), config)
-	if err != nil {
-		return nil, err
-	}
-	if h, ok := header.(PacketHeader); ok {
-		return h, nil
-	}
-	return nil, errors.New("not a packet header")
-}
-
 type ConnectionAuthenticator interface {
 	Client(net.Conn) net.Conn
 	Server(net.Conn) net.Conn
 }
 
-func CreateConnectionAuthenticator(config interface{}) (ConnectionAuthenticator, error) {
-	auth, err := common.CreateObject(context.Background(), config)
+// ponytail: one helper (was 2 identical funcs); CreatePacketHeader had zero callers.
+func createHeaderAs[T any](config interface{}, notHeader string) (T, error) {
+	var zero T
+	header, err := common.CreateObject(context.Background(), config)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
-	if a, ok := auth.(ConnectionAuthenticator); ok {
-		return a, nil
+	if h, ok := header.(T); ok {
+		return h, nil
 	}
-	return nil, errors.New("not a ConnectionAuthenticator")
+	return zero, errors.New(notHeader)
+}
+
+func CreatePacketHeader(config interface{}) (PacketHeader, error) {
+	return createHeaderAs[PacketHeader](config, "not a packet header")
+}
+
+func CreateConnectionAuthenticator(config interface{}) (ConnectionAuthenticator, error) {
+	return createHeaderAs[ConnectionAuthenticator](config, "not a ConnectionAuthenticator")
 }

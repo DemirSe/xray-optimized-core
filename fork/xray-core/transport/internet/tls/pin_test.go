@@ -93,7 +93,7 @@ uI6HqHFD3iEct8fBkYfQiwH2e1eu9OwgujiWHsutyK8VvzVB3/YnhQ/TzciRjPqz
 		block, _ := pem.Decode([]byte(Single))
 		cert, err := x509.ParseCertificate(block.Bytes)
 		assert.Equal(t, err, nil)
-		hash := GenerateCertHash(cert)
+		hash := GenerateCertHash(cert.Raw)
 		fingerprint, _ := hex.DecodeString("ae243d668ec9c7f74a0dcd1ad21c6676b4efe30c39728934b362093af886bf77")
 		assert.Equal(t, fingerprint, hash)
 	})

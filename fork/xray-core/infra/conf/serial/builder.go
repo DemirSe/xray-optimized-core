@@ -2,9 +2,9 @@ package serial
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/xtls/xray-core/common/errors"
-	creflect "github.com/xtls/xray-core/common/reflect"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/infra/conf"
 	"github.com/xtls/xray-core/main/confloader"
@@ -16,10 +16,12 @@ func MergeConfigFromFiles(files []*core.ConfigSource) (string, error) {
 		return "", err
 	}
 
-	if j, ok := creflect.MarshalToJson(c, true); ok {
-		return j, nil
+	// ponytail: debug dump only; stdlib replaces 230-line reflect dumper.
+	b, err := json.MarshalIndent(c, "", "    ")
+	if err != nil {
+		return "", errors.New("marshal to json failed.").Base(err).AtError()
 	}
-	return "", errors.New("marshal to json failed.").AtError()
+	return string(b), nil
 }
 
 func mergeConfigs(files []*core.ConfigSource) (*conf.Config, error) {

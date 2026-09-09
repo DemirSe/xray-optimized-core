@@ -56,5 +56,5 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 
 // NewStreamReader creates a new StreamReader.
 func NewStreamReader(reader *buf.BufferedReader) buf.Reader {
-	return crypto.NewChunkStreamReaderWithChunkCount(crypto.PlainChunkSizeParser{}, reader, 1)
+	return crypto.NewChunkStreamReaderWithChunkCount(reader, 1)
 }
