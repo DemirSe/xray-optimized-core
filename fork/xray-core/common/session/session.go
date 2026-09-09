@@ -2,11 +2,9 @@
 package session // import "github.com/xtls/xray-core/common/session"
 
 import (
-	"context"
 	"math/rand"
 
 	c "github.com/xtls/xray-core/common/ctx"
-	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/signal"
@@ -20,15 +18,6 @@ func NewID() c.ID {
 		if id != 0 {
 			return id
 		}
-	}
-}
-
-// ExportIDToError transfers session.ID into an error object, for logging purpose.
-// This can be used with error.WriteToLog().
-func ExportIDToError(ctx context.Context) errors.ExportOption {
-	id := c.IDFromContext(ctx)
-	return func(h *errors.ExportOptionHolder) {
-		h.SessionID = uint32(id)
 	}
 }
 

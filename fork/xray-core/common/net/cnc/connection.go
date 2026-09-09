@@ -12,33 +12,9 @@ import (
 
 type ConnectionOption func(*Connection)
 
-func ConnectionLocalAddr(a net.Addr) ConnectionOption {
-	return func(c *Connection) {
-		c.local = a
-	}
-}
-
-func ConnectionRemoteAddr(a net.Addr) ConnectionOption {
-	return func(c *Connection) {
-		c.remote = a
-	}
-}
-
-func ConnectionInput(writer io.Writer) ConnectionOption {
-	return func(c *Connection) {
-		c.writer = buf.NewWriter(writer)
-	}
-}
-
 func ConnectionInputMulti(writer buf.Writer) ConnectionOption {
 	return func(c *Connection) {
 		c.writer = writer
-	}
-}
-
-func ConnectionOutput(reader io.Reader) ConnectionOption {
-	return func(c *Connection) {
-		c.reader = &buf.BufferedReader{Reader: buf.NewReader(reader)}
 	}
 }
 
