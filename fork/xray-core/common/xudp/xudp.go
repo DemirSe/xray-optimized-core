@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
@@ -26,27 +26,20 @@ var AddrParser = protocol.NewAddressParser(
 	protocol.PortThenAddress(),
 )
 
-var (
-	Show    bool
-	BaseKey []byte
-)
-
-func init() {
-	if strings.ToLower(platform.NewEnvFlag(platform.XUDPLog).GetValue(func() string { return "" })) == "true" {
-		Show = true
-	}
-	BaseKey = make([]byte, 32)
-	rand.Read(BaseKey)
-	go func() {
-		time.Sleep(100 * time.Millisecond) // this is not nice, but need to give some time for Android to setup ENV
-		if raw := platform.NewEnvFlag(platform.XUDPBaseKey).GetValue(func() string { return "" }); raw != "" {
-			if BaseKey, _ = base64.RawURLEncoding.DecodeString(raw); len(BaseKey) == 32 {
-				return
-			}
-			panic(platform.XUDPBaseKey + ": invalid value (BaseKey must be 32 bytes): " + raw + " len " + strconv.Itoa(len(BaseKey)))
+// ponytail: base key resolved once at first use; no init goroutine, Sleep, or racy global write.
+// The xray.xudp.basekey env knob still overrides the random default; invalid values still panic.
+var getBaseKey = sync.OnceValue(func() []byte {
+	key := make([]byte, 32)
+	rand.Read(key)
+	if raw := platform.NewEnvFlag(platform.XUDPBaseKey).GetValue(func() string { return "" }); raw != "" {
+		k, _ := base64.RawURLEncoding.DecodeString(raw)
+		if len(k) == 32 {
+			return k
 		}
-	}()
-}
+		panic(platform.XUDPBaseKey + ": invalid value (BaseKey must be 32 bytes): " + raw + " len " + strconv.Itoa(len(k)))
+	}
+	return key
+})
 
 func GetGlobalID(ctx context.Context) (globalID [8]byte) {
 	if cone := ctx.Value("cone"); cone == nil || !cone.(bool) { // cone is nil only in some unit tests
@@ -54,22 +47,15 @@ func GetGlobalID(ctx context.Context) (globalID [8]byte) {
 	}
 	if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Source.Network == net.Network_UDP &&
 		(inbound.Name == "dokodemo-door" || inbound.Name == "socks" || inbound.Name == "shadowsocks" || inbound.Name == "tun" || inbound.Name == "wireguard") {
-		h := blake3.New(8, BaseKey)
+		h := blake3.New(8, getBaseKey())
 		h.Write([]byte(inbound.Source.String()))
 		copy(globalID[:], h.Sum(nil))
-		if Show {
+		// ponytail: xray.xudp.show read at use instead of init snapshot.
+		if strings.ToLower(platform.NewEnvFlag(platform.XUDPLog).GetValue(func() string { return "" })) == "true" {
 			errors.LogInfo(ctx, fmt.Sprintf("XUDP inbound.Source.String(): %v\tglobalID: %v\n", inbound.Source.String(), globalID))
 		}
 	}
 	return
-}
-
-func NewPacketWriter(writer buf.Writer, dest net.Destination, globalID [8]byte) *PacketWriter {
-	return &PacketWriter{
-		Writer:   writer,
-		Dest:     dest,
-		GlobalID: globalID,
-	}
 }
 
 type PacketWriter struct {
@@ -119,13 +105,6 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		return nil
 	}
 	return w.Writer.WriteMultiBuffer(mb2Write)
-}
-
-func NewPacketReader(reader io.Reader) *PacketReader {
-	return &PacketReader{
-		Reader: reader,
-		cache:  make([]byte, 2),
-	}
 }
 
 type PacketReader struct {

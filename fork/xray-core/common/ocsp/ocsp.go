@@ -3,7 +3,6 @@ package ocsp
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/pem"
 	"io"
 	"net/http"
 
@@ -12,18 +11,17 @@ import (
 )
 
 func GetOCSPForCert(cert [][]byte) ([]byte, error) {
-	bundle := new(bytes.Buffer)
+	// ponytail: input is already DER; PEM round-trip added nothing.
+	certificates := make([]*x509.Certificate, 0, len(cert))
 	for _, derBytes := range cert {
-		err := pem.Encode(bundle, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+		parsed, err := x509.ParseCertificate(derBytes)
 		if err != nil {
 			return nil, err
 		}
+		certificates = append(certificates, parsed)
 	}
-	pemBundle := bundle.Bytes()
-
-	certificates, err := parsePEMBundle(pemBundle)
-	if err != nil {
-		return nil, err
+	if len(certificates) == 0 {
+		return nil, errors.New("no certificates were found while parsing the bundle")
 	}
 	issuedCert := certificates[0]
 	if len(issuedCert.OCSPServer) == 0 {
@@ -68,32 +66,4 @@ func GetOCSPForCert(cert [][]byte) ([]byte, error) {
 		return nil, errors.New(err)
 	}
 	return ocspResBytes, nil
-}
-
-// parsePEMBundle parses a certificate bundle from top to bottom and returns
-// a slice of x509 certificates. This function will error if no certificates are found.
-func parsePEMBundle(bundle []byte) ([]*x509.Certificate, error) {
-	var certificates []*x509.Certificate
-	var certDERBlock *pem.Block
-
-	for {
-		certDERBlock, bundle = pem.Decode(bundle)
-		if certDERBlock == nil {
-			break
-		}
-
-		if certDERBlock.Type == "CERTIFICATE" {
-			cert, err := x509.ParseCertificate(certDERBlock.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			certificates = append(certificates, cert)
-		}
-	}
-
-	if len(certificates) == 0 {
-		return nil, errors.New("no certificates were found while parsing the bundle")
-	}
-
-	return certificates, nil
 }

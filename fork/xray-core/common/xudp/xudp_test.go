@@ -15,7 +15,7 @@ func TestXudpReadWrite(t *testing.T) {
 		MultiBuffer: mb,
 	}
 	var arr [8]byte
-	writer := NewPacketWriter(&m, addr, arr)
+	writer := &PacketWriter{Writer: &m, Dest: addr, GlobalID: arr}
 
 	source := make(buf.MultiBuffer, 0, 16)
 	b := buf.New()
@@ -24,7 +24,7 @@ func TestXudpReadWrite(t *testing.T) {
 	source = append(source, b)
 	writer.WriteMultiBuffer(source)
 
-	reader := NewPacketReader(&m)
+	reader := &PacketReader{Reader: &m, cache: make([]byte, 2)}
 	dest, err := reader.ReadMultiBuffer()
 	if err := common.Must(err); err != nil {
 		t.Fatal(err)

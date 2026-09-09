@@ -249,7 +249,12 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		ctx = newCtx
 	}
 
-	if err := task.Run(ctx, requestDone, task.OnSuccess(responseDone, func() error { return common.Close(output) })); err != nil {
+	if err := task.Run(ctx, requestDone, func() error {
+		if err := responseDone(); err != nil {
+			return err
+		}
+		return common.Close(output)
+	}); err != nil {
 		return errors.New("connection ends").Base(err)
 	}
 

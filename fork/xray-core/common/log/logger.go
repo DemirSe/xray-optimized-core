@@ -33,13 +33,12 @@ type serverityLogger struct {
 	logLevel Severity
 }
 
-// NewLogger returns a generic log handler that can handle all type of messages.
-func NewLogger(logWriterCreator WriterCreator) Handler {
+func newGeneralLogger(creator WriterCreator) *generalLogger {
 	access := make(chan struct{}, 1)
 	access <- struct{}{}
 	doneCtx, doneCancel := context.WithCancel(context.Background())
 	return &generalLogger{
-		creator:    logWriterCreator,
+		creator:    creator,
 		buffer:     make(chan Message, 128),
 		access:     access,
 		doneCtx:    doneCtx,
@@ -47,23 +46,16 @@ func NewLogger(logWriterCreator WriterCreator) Handler {
 	}
 }
 
-func ReplaceWithSeverityLogger(serverity Severity) {
-	w := CreateStdoutLogWriter()
-	access := make(chan struct{}, 1)
-	access <- struct{}{}
-	doneCtx, doneCancel := context.WithCancel(context.Background())
-	g := &generalLogger{
-		creator:    w,
-		buffer:     make(chan Message, 128),
-		access:     access,
-		doneCtx:    doneCtx,
-		doneCancel: doneCancel,
-	}
-	s := &serverityLogger{
-		inner:    g,
-		logLevel: serverity,
-	}
-	RegisterHandler(s)
+// NewLogger returns a generic log handler that can handle all type of messages.
+func NewLogger(logWriterCreator WriterCreator) Handler {
+	return newGeneralLogger(logWriterCreator)
+}
+
+func ReplaceWithSeverityLogger(severity Severity) {
+	RegisterHandler(&serverityLogger{
+		inner:    newGeneralLogger(CreateStdoutLogWriter()),
+		logLevel: severity,
+	})
 }
 
 func (l *serverityLogger) Handle(msg Message) {

@@ -513,7 +513,17 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 				return nil
 			}
 
-			if err := task.Run(ctx, task.OnSuccess(postRequest, func() error { return common.Close(serverWriter) }), task.OnSuccess(getResponse, func() error { return common.Close(writer) })); err != nil {
+			if err := task.Run(ctx, func() error {
+				if err := postRequest(); err != nil {
+					return err
+				}
+				return common.Close(serverWriter)
+			}, func() error {
+				if err := getResponse(); err != nil {
+					return err
+				}
+				return common.Close(writer)
+			}); err != nil {
 				common.Interrupt(serverReader)
 				common.Interrupt(serverWriter)
 				return errors.New("fallback ends").Base(err).AtInfo()
