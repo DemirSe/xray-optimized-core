@@ -2,12 +2,12 @@ package dns
 
 import (
 	"encoding/binary"
+	"io"
 	"sync"
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/serial"
 	"golang.org/x/net/dns/dnsmessage"
 )
 
@@ -92,10 +92,11 @@ func NewTCPReader(reader buf.Reader) *TCPReader {
 }
 
 func (r *TCPReader) ReadMessage() (*buf.Buffer, error) {
-	size, err := serial.ReadUint16(r.reader)
-	if err != nil {
+	var sizeBytes [2]byte
+	if _, err := io.ReadFull(r.reader, sizeBytes[:]); err != nil {
 		return nil, err
 	}
+	size := binary.BigEndian.Uint16(sizeBytes[:])
 	if size > buf.Size {
 		return nil, errors.New("message size too large: ", size)
 	}

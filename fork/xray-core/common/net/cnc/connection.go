@@ -1,13 +1,13 @@
 package cnc
 
 import (
+	"context"
 	"io"
 	"time"
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/signal/done"
 )
 
 type ConnectionOption func(*Connection)
@@ -64,8 +64,10 @@ func ConnectionOnClose(n io.Closer) ConnectionOption {
 }
 
 func NewConnection(opts ...ConnectionOption) net.Conn {
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	c := &Connection{
-		done: done.New(),
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
 		local: &net.TCPAddr{
 			IP:   []byte{0, 0, 0, 0},
 			Port: 0,
@@ -84,12 +86,13 @@ func NewConnection(opts ...ConnectionOption) net.Conn {
 }
 
 type Connection struct {
-	reader  *buf.BufferedReader
-	writer  buf.Writer
-	done    *done.Instance
-	onClose io.Closer
-	local   net.Addr
-	remote  net.Addr
+	reader     *buf.BufferedReader
+	writer     buf.Writer
+	doneCtx    context.Context
+	doneCancel context.CancelFunc
+	onClose    io.Closer
+	local      net.Addr
+	remote     net.Addr
 }
 
 func (c *Connection) Read(b []byte) (int, error) {
@@ -103,7 +106,7 @@ func (c *Connection) ReadMultiBuffer() (buf.MultiBuffer, error) {
 
 // Write implements net.Conn.Write().
 func (c *Connection) Write(b []byte) (int, error) {
-	if c.done.Done() {
+	if c.doneCtx.Err() != nil {
 		return 0, io.ErrClosedPipe
 	}
 
@@ -114,7 +117,7 @@ func (c *Connection) Write(b []byte) (int, error) {
 }
 
 func (c *Connection) WriteMultiBuffer(mb buf.MultiBuffer) error {
-	if c.done.Done() {
+	if c.doneCtx.Err() != nil {
 		buf.ReleaseMulti(mb)
 		return io.ErrClosedPipe
 	}
@@ -124,9 +127,7 @@ func (c *Connection) WriteMultiBuffer(mb buf.MultiBuffer) error {
 
 // Close implements net.Conn.Close().
 func (c *Connection) Close() error {
-	if err := c.done.Close(); err != nil {
-		return err
-	}
+	c.doneCancel()
 	common.Interrupt(c.reader)
 	common.Close(c.writer)
 	if c.onClose != nil {

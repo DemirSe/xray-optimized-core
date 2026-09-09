@@ -2,8 +2,6 @@ package task
 
 import (
 	"context"
-
-	"github.com/xtls/xray-core/common/signal/semaphore"
 )
 
 // OnSuccess executes g() after f() returns nil.
@@ -19,15 +17,19 @@ func OnSuccess(f func() error, g func() error) func() error {
 // Run executes a list of tasks in parallel, returns the first error encountered or nil if all tasks pass.
 func Run(ctx context.Context, tasks ...func() error) error {
 	n := len(tasks)
-	s := semaphore.New(n)
+	// ponytail: raw chan instead of semaphore.Instance (identical acquire/release).
+	s := make(chan struct{}, n)
+	for i := 0; i < n; i++ {
+		s <- struct{}{}
+	}
 	done := make(chan error, 1)
 
 	for _, task := range tasks {
-		<-s.Wait()
+		<-s
 		go func(f func() error) {
 			err := f()
 			if err == nil {
-				s.Signal()
+				s <- struct{}{}
 				return
 			}
 
@@ -50,7 +52,7 @@ func Run(ctx context.Context, tasks ...func() error) error {
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-s.Wait():
+		case <-s:
 		}
 	}
 

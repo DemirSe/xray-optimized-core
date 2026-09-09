@@ -1,10 +1,11 @@
 package mux
 
 import (
+	"encoding/binary"
+
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/session"
 )
 
@@ -75,7 +76,9 @@ func writeMetaWithFrame(writer buf.Writer, meta FrameMetadata, data buf.MultiBuf
 	if err := meta.WriteTo(frame); err != nil {
 		return err
 	}
-	if _, err := serial.WriteUint16(frame, uint16(data.Len())); err != nil {
+	var sizeBytes [2]byte
+	binary.BigEndian.PutUint16(sizeBytes[:], uint16(data.Len()))
+	if _, err := frame.Write(sizeBytes[:]); err != nil {
 		return err
 	}
 
@@ -87,7 +90,7 @@ func writeMetaWithFrame(writer buf.Writer, meta FrameMetadata, data buf.MultiBuf
 
 func (w *Writer) writeData(mb buf.MultiBuffer) error {
 	meta := w.getNextFrameMeta()
-	meta.Option.Set(OptionData)
+	meta.Option |= OptionData
 
 	return writeMetaWithFrame(w.writer, meta, mb)
 }
@@ -124,7 +127,7 @@ func (w *Writer) Close() error {
 		SessionStatus: SessionStatusEnd,
 	}
 	if w.hasError {
-		meta.Option.Set(OptionError)
+		meta.Option |= OptionError
 	}
 
 	frame := buf.New()

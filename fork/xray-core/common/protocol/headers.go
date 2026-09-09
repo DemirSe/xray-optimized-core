@@ -3,7 +3,6 @@ package protocol
 import (
 	"runtime"
 
-	"github.com/xtls/xray-core/common/bitmask"
 	"github.com/xtls/xray-core/common/net"
 	"golang.org/x/sys/cpu"
 )
@@ -31,21 +30,21 @@ func (c RequestCommand) TransferType() TransferType {
 
 const (
 	// [DEPRECATED 2023-06] RequestOptionChunkStream indicates request payload is chunked. Each chunk consists of length, authentication and payload.
-	RequestOptionChunkStream bitmask.Byte = 0x01
+	RequestOptionChunkStream byte = 0x01
 
 	// 0x02 legacy setting
 
-	RequestOptionChunkMasking bitmask.Byte = 0x04
+	RequestOptionChunkMasking byte = 0x04
 
-	RequestOptionGlobalPadding bitmask.Byte = 0x08
+	RequestOptionGlobalPadding byte = 0x08
 
-	RequestOptionAuthenticatedLength bitmask.Byte = 0x10
+	RequestOptionAuthenticatedLength byte = 0x10
 )
 
 type RequestHeader struct {
 	Version  byte
 	Command  RequestCommand
-	Option   bitmask.Byte
+	Option   byte
 	Security SecurityType
 	Port     net.Port
 	Address  net.Address
@@ -60,13 +59,13 @@ func (h *RequestHeader) Destination() net.Destination {
 }
 
 const (
-	ResponseOptionConnectionReuse bitmask.Byte = 0x01
+	ResponseOptionConnectionReuse byte = 0x01
 )
 
 type ResponseCommand interface{}
 
 type ResponseHeader struct {
-	Option  bitmask.Byte
+	Option  byte
 	Command ResponseCommand
 }
 

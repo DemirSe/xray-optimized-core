@@ -1,14 +1,13 @@
 package log
 
 import (
+	"context"
 	"io"
 	"log"
 	"os"
 	"time"
 
 	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/signal/done"
-	"github.com/xtls/xray-core/common/signal/semaphore"
 )
 
 // Writer is the interface for writing logs.
@@ -23,8 +22,10 @@ type WriterCreator func() Writer
 type generalLogger struct {
 	creator WriterCreator
 	buffer  chan Message
-	access  *semaphore.Instance
-	done    *done.Instance
+	// ponytail: raw chan instead of semaphore.Instance (token held while run active).
+	access     chan struct{}
+	doneCtx    context.Context
+	doneCancel context.CancelFunc
 }
 
 type serverityLogger struct {
@@ -34,21 +35,29 @@ type serverityLogger struct {
 
 // NewLogger returns a generic log handler that can handle all type of messages.
 func NewLogger(logWriterCreator WriterCreator) Handler {
+	access := make(chan struct{}, 1)
+	access <- struct{}{}
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	return &generalLogger{
-		creator: logWriterCreator,
-		buffer:  make(chan Message, 128),
-		access:  semaphore.New(1),
-		done:    done.New(),
+		creator:    logWriterCreator,
+		buffer:     make(chan Message, 128),
+		access:     access,
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
 	}
 }
 
 func ReplaceWithSeverityLogger(serverity Severity) {
 	w := CreateStdoutLogWriter()
+	access := make(chan struct{}, 1)
+	access <- struct{}{}
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	g := &generalLogger{
-		creator: w,
-		buffer:  make(chan Message, 128),
-		access:  semaphore.New(1),
-		done:    done.New(),
+		creator:    w,
+		buffer:     make(chan Message, 128),
+		access:     access,
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
 	}
 	s := &serverityLogger{
 		inner:    g,
@@ -69,7 +78,7 @@ func (l *serverityLogger) Handle(msg Message) {
 }
 
 func (l *generalLogger) run() {
-	defer l.access.Signal()
+	defer func() { l.access <- struct{}{} }()
 
 	dataWritten := false
 	ticker := time.NewTicker(time.Minute)
@@ -83,7 +92,7 @@ func (l *generalLogger) run() {
 
 	for {
 		select {
-		case <-l.done.Wait():
+		case <-l.doneCtx.Done():
 			return
 		case msg := <-l.buffer:
 			logger.Write(msg.String() + platform.LineSeparator())
@@ -105,14 +114,15 @@ func (l *generalLogger) Handle(msg Message) {
 	}
 
 	select {
-	case <-l.access.Wait():
+	case <-l.access:
 		go l.run()
 	default:
 	}
 }
 
 func (l *generalLogger) Close() error {
-	return l.done.Close()
+	l.doneCancel()
+	return nil
 }
 
 type consoleLogWriter struct {

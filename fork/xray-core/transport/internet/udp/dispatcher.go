@@ -13,7 +13,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol/udp"
 	"github.com/xtls/xray-core/common/signal"
-	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport"
 )
@@ -165,15 +164,18 @@ func handleInput(ctx context.Context, conn *connEntry, dest net.Destination, cal
 type dispatcherConn struct {
 	dispatcher *Dispatcher
 	cache      chan *udp.Packet
-	done       *done.Instance
+	doneCtx    context.Context
+	doneCancel context.CancelFunc
 	ctx        context.Context
 }
 
 func DialDispatcher(ctx context.Context, dispatcher routing.Dispatcher) (net.PacketConn, error) {
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	c := &dispatcherConn{
-		cache: make(chan *udp.Packet, 16),
-		done:  done.New(),
-		ctx:   ctx,
+		cache:      make(chan *udp.Packet, 16),
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
+		ctx:        ctx,
 	}
 
 	d := &Dispatcher{
@@ -187,7 +189,7 @@ func DialDispatcher(ctx context.Context, dispatcher routing.Dispatcher) (net.Pac
 
 func (c *dispatcherConn) callback(ctx context.Context, packet *udp.Packet) {
 	select {
-	case <-c.done.Wait():
+	case <-c.doneCtx.Done():
 		packet.Payload.Release()
 		return
 	case c.cache <- packet:
@@ -201,7 +203,7 @@ func (c *dispatcherConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	var packet *udp.Packet
 s:
 	select {
-	case <-c.done.Wait():
+	case <-c.doneCtx.Done():
 		select {
 		case packet = <-c.cache:
 			break s
@@ -229,7 +231,8 @@ func (c *dispatcherConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 }
 
 func (c *dispatcherConn) Close() error {
-	return c.done.Close()
+	c.doneCancel()
+	return nil
 }
 
 func (c *dispatcherConn) LocalAddr() net.Addr {

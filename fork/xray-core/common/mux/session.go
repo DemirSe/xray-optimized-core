@@ -12,7 +12,6 @@ import (
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/transport/pipe"
 )
 
@@ -63,10 +62,12 @@ func (m *SessionManager) Allocate(Strategy *ClientStrategy) *Session {
 	}
 
 	m.count++
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	s := &Session{
-		ID:     m.count,
-		parent: m,
-		done:   done.New(),
+		ID:         m.count,
+		parent:     m,
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
 	}
 	m.sessions[s.ID] = s
 	return s
@@ -161,7 +162,8 @@ type Session struct {
 	ID           uint16
 	transferType protocol.TransferType
 	closed       bool
-	done         *done.Instance
+	doneCtx      context.Context
+	doneCancel   context.CancelFunc
 	XUDP         *XUDP
 }
 
@@ -176,8 +178,8 @@ func (s *Session) Close(locked bool) error {
 		return nil
 	}
 	s.closed = true
-	if s.done != nil {
-		s.done.Close()
+	if s.doneCancel != nil {
+		s.doneCancel()
 	}
 	if s.XUDP == nil {
 		common.Interrupt(s.input)

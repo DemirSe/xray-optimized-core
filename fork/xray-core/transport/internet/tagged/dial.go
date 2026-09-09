@@ -1,4 +1,4 @@
-package taggedimpl
+package tagged
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/routing"
-	"github.com/xtls/xray-core/transport/internet/tagged"
 )
 
 func DialTaggedOutbound(ctx context.Context, dispatcher routing.Dispatcher, dest net.Destination, tag string) (net.Conn, error) {
@@ -36,5 +35,5 @@ func DialTaggedOutbound(ctx context.Context, dispatcher routing.Dispatcher, dest
 }
 
 func init() {
-	tagged.Dialer = DialTaggedOutbound
+	Dialer = DialTaggedOutbound
 }

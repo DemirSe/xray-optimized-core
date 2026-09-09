@@ -14,7 +14,7 @@ import (
 	_ "github.com/xtls/xray-core/app/reverse"
 
 	// Fix dependency cycle caused by core import in internet package
-	_ "github.com/xtls/xray-core/transport/internet/tagged/taggedimpl"
+	_ "github.com/xtls/xray-core/transport/internet/tagged"
 
 	// Inbound and outbound proxies.
 	_ "github.com/xtls/xray-core/proxy/freedom"

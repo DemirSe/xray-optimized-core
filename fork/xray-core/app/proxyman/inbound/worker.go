@@ -15,7 +15,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/features/stats"
@@ -178,7 +177,8 @@ type udpConn struct {
 	output           func([]byte) (int, error)
 	remote           net.Addr
 	local            net.Addr
-	done             *done.Instance
+	doneCtx          context.Context
+	doneCancel       context.CancelFunc
 	uplink           stats.Counter
 	downlink         stats.Counter
 	inactive         bool
@@ -229,8 +229,8 @@ func (c *udpConn) Close() error {
 	if c.cancel != nil {
 		c.cancel()
 	}
-	if err := c.done.Close(); err != nil {
-		return err
+	if c.doneCancel != nil {
+		c.doneCancel()
 	}
 	return common.Close(c.writer)
 }
@@ -285,12 +285,13 @@ func (w *udpWorker) getConnection(id connID) (*udpConn, bool) {
 	w.Lock()
 	defer w.Unlock()
 
-	if conn, found := w.activeConn[id]; found && !conn.done.Done() {
+	if conn, found := w.activeConn[id]; found && conn.doneCtx.Err() == nil {
 		conn.updateActivity()
 		return conn, true
 	}
 
 	pReader, pWriter := pipe.New(pipe.DiscardOverflow(), pipe.WithSizeLimit(16*1024))
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	conn := &udpConn{
 		reader: pReader,
 		writer: pWriter,
@@ -305,9 +306,10 @@ func (w *udpWorker) getConnection(id connID) (*udpConn, bool) {
 			IP:   w.address.IP(),
 			Port: int(w.port),
 		},
-		done:     done.New(),
-		uplink:   w.uplinkCounter,
-		downlink: w.downlinkCounter,
+		doneCtx:    doneCtx,
+		doneCancel: doneCancel,
+		uplink:     w.uplinkCounter,
+		downlink:   w.downlinkCounter,
 	}
 	w.activeConn[id] = conn
 

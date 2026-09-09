@@ -5,75 +5,60 @@ import (
 	"time"
 )
 
-// Periodic is a task that runs periodically.
+// Periodic runs Execute immediately on Start, then every Interval until
+// Close or an Execute error. Start is idempotent while running and
+// restarts after Close.
 type Periodic struct {
 	// Interval of the task being run
 	Interval time.Duration
 	// Execute is the task function
 	Execute func() error
 
-	access  sync.Mutex
+	mu      sync.Mutex
 	timer   *time.Timer
 	running bool
 }
 
-func (t *Periodic) hasClosed() bool {
-	t.access.Lock()
-	defer t.access.Unlock()
-
-	return !t.running
-}
-
-func (t *Periodic) checkedExecute() error {
-	if t.hasClosed() {
+func (t *Periodic) step() error {
+	t.mu.Lock()
+	if !t.running {
+		t.mu.Unlock()
 		return nil
 	}
+	t.mu.Unlock()
 
 	if err := t.Execute(); err != nil {
-		t.access.Lock()
+		t.mu.Lock()
 		t.running = false
-		t.access.Unlock()
+		t.mu.Unlock()
 		return err
 	}
 
-	t.access.Lock()
-	defer t.access.Unlock()
-
-	if !t.running {
-		return nil
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.running {
+		t.timer = time.AfterFunc(t.Interval, func() { _ = t.step() })
 	}
-
-	t.timer = time.AfterFunc(t.Interval, func() {
-		t.checkedExecute()
-	})
-
 	return nil
 }
 
 // Start implements common.Runnable.
 func (t *Periodic) Start() error {
-	t.access.Lock()
+	t.mu.Lock()
 	if t.running {
-		t.access.Unlock()
+		t.mu.Unlock()
 		return nil
 	}
 	t.running = true
-	t.access.Unlock()
+	t.mu.Unlock()
 
-	if err := t.checkedExecute(); err != nil {
-		t.access.Lock()
-		t.running = false
-		t.access.Unlock()
-		return err
-	}
-
-	return nil
+	return t.step()
 }
 
 // Close implements common.Closable.
 func (t *Periodic) Close() error {
-	t.access.Lock()
-	defer t.access.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	t.running = false
 	if t.timer != nil {

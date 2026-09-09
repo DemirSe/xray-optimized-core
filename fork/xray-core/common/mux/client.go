@@ -13,7 +13,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/common/xudp"
 	"github.com/xtls/xray-core/proxy"
@@ -167,7 +166,7 @@ func (f *DialingWorkerFactory) Create() (*ClientWorker, error) {
 			panic(err)
 		}
 		cancel()
-	}(f.Proxy, f.Dialer, c.done)
+	}(f.Proxy, f.Dialer, c)
 
 	return c, nil
 }
@@ -180,7 +179,8 @@ type ClientStrategy struct {
 type ClientWorker struct {
 	sessionManager *SessionManager
 	link           transport.Link
-	done           *done.Instance
+	doneCtx        context.Context
+	doneCancel     context.CancelFunc
 	timer          *time.Ticker
 	strategy       ClientStrategy
 }
@@ -192,10 +192,12 @@ var (
 
 // NewClientWorker creates a new mux.Client.
 func NewClientWorker(stream transport.Link, s ClientStrategy) (*ClientWorker, error) {
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	c := &ClientWorker{
 		sessionManager: NewSessionManager(),
 		link:           stream,
-		done:           done.New(),
+		doneCtx:        doneCtx,
+		doneCancel:     doneCancel,
 		timer:          time.NewTicker(time.Second * 16),
 		strategy:       s,
 	}
@@ -216,15 +218,16 @@ func (m *ClientWorker) ActiveConnections() uint32 {
 
 // Closed returns true if this Client is closed.
 func (m *ClientWorker) Closed() bool {
-	return m.done.Done()
+	return m.doneCtx.Err() != nil
 }
 
 func (m *ClientWorker) WaitClosed() <-chan struct{} {
-	return m.done.Wait()
+	return m.doneCtx.Done()
 }
 
 func (m *ClientWorker) Close() error {
-	return m.done.Close()
+	m.doneCancel()
+	return nil
 }
 
 func (m *ClientWorker) monitor() {
@@ -234,16 +237,14 @@ func (m *ClientWorker) monitor() {
 		checkSize := m.sessionManager.Size()
 		checkCount := m.sessionManager.Count()
 		select {
-		case <-m.done.Wait():
+		case <-m.doneCtx.Done():
 			m.sessionManager.Close()
 			common.Interrupt(m.link.Writer)
 			common.Interrupt(m.link.Reader)
 			return
 		case <-m.timer.C:
 			if m.sessionManager.CloseIfNoSessionAndIdle(checkSize, checkCount) {
-				if err := m.done.Close(); err != nil {
-					panic(err)
-				}
+				m.doneCancel()
 			}
 		}
 	}
@@ -330,28 +331,28 @@ func (m *ClientWorker) Dispatch(ctx context.Context, link *transport.Link) bool 
 	if _, ok := link.Reader.(*pipe.Reader); !ok {
 		select {
 		case <-ctx.Done():
-		case <-s.done.Wait():
+		case <-s.doneCtx.Done():
 		}
 	}
 	return true
 }
 
 func (m *ClientWorker) handleStatueKeepAlive(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if meta.Option.Has(OptionData) {
+	if meta.Option&OptionData != 0 {
 		return buf.Copy(NewStreamReader(reader), buf.Discard)
 	}
 	return nil
 }
 
 func (m *ClientWorker) handleStatusNew(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if meta.Option.Has(OptionData) {
+	if meta.Option&OptionData != 0 {
 		return buf.Copy(NewStreamReader(reader), buf.Discard)
 	}
 	return nil
 }
 
 func (m *ClientWorker) handleStatusKeep(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if !meta.Option.Has(OptionData) {
+	if meta.Option&OptionData == 0 {
 		return nil
 	}
 
@@ -379,18 +380,14 @@ func (m *ClientWorker) handleStatusEnd(meta *FrameMetadata, reader *buf.Buffered
 	if s, found := m.sessionManager.Get(meta.SessionID); found {
 		s.Close(false)
 	}
-	if meta.Option.Has(OptionData) {
+	if meta.Option&OptionData != 0 {
 		return buf.Copy(NewStreamReader(reader), buf.Discard)
 	}
 	return nil
 }
 
 func (m *ClientWorker) fetchOutput() {
-	defer func() {
-		if err := m.done.Close(); err != nil {
-			panic(err)
-		}
-	}()
+	defer m.doneCancel()
 
 	reader := &buf.BufferedReader{Reader: m.link.Reader}
 

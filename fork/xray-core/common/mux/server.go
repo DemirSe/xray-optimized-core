@@ -12,7 +12,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport"
@@ -69,7 +68,7 @@ func (s *Server) DispatchLink(ctx context.Context, dest net.Destination, link *t
 	}
 	select {
 	case <-ctx.Done():
-	case <-worker.done.Wait():
+	case <-worker.doneCtx.Done():
 	}
 	return nil
 }
@@ -88,16 +87,19 @@ type ServerWorker struct {
 	dispatcher     routing.Dispatcher
 	link           *transport.Link
 	sessionManager *SessionManager
-	done           *done.Instance
+	doneCtx        context.Context
+	doneCancel     context.CancelFunc
 	timer          *time.Ticker
 }
 
 func NewServerWorker(ctx context.Context, d routing.Dispatcher, link *transport.Link) (*ServerWorker, error) {
+	doneCtx, doneCancel := context.WithCancel(context.Background())
 	worker := &ServerWorker{
 		dispatcher:     d,
 		link:           link,
 		sessionManager: NewSessionManager(),
-		done:           done.New(),
+		doneCtx:        doneCtx,
+		doneCancel:     doneCancel,
 		timer:          time.NewTicker(60 * time.Second),
 	}
 	if inbound := session.InboundFromContext(ctx); inbound != nil {
@@ -126,16 +128,14 @@ func (w *ServerWorker) monitor() {
 		checkSize := w.sessionManager.Size()
 		checkCount := w.sessionManager.Count()
 		select {
-		case <-w.done.Wait():
+		case <-w.doneCtx.Done():
 			w.sessionManager.Close()
 			common.Interrupt(w.link.Writer)
 			common.Interrupt(w.link.Reader)
 			return
 		case <-w.timer.C:
 			if w.sessionManager.CloseIfNoSessionAndIdle(checkSize, checkCount) {
-				if err := w.done.Close(); err != nil {
-					panic(err)
-				}
+				w.doneCancel()
 			}
 		}
 	}
@@ -146,19 +146,20 @@ func (w *ServerWorker) ActiveConnections() uint32 {
 }
 
 func (w *ServerWorker) Closed() bool {
-	return w.done.Done()
+	return w.doneCtx.Err() != nil
 }
 
 func (w *ServerWorker) WaitClosed() <-chan struct{} {
-	return w.done.Wait()
+	return w.doneCtx.Done()
 }
 
 func (w *ServerWorker) Close() error {
-	return w.done.Close()
+	w.doneCancel()
+	return nil
 }
 
 func (w *ServerWorker) handleStatusKeepAlive(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if meta.Option.Has(OptionData) {
+	if meta.Option&OptionData != 0 {
 		return buf.Copy(NewStreamReader(reader), buf.Discard)
 	}
 	return nil
@@ -265,7 +266,7 @@ func (w *ServerWorker) handleStatusNew(ctx context.Context, meta *FrameMetadata,
 
 	link, err := w.dispatcher.Dispatch(ctx, meta.Target)
 	if err != nil {
-		if meta.Option.Has(OptionData) {
+		if meta.Option&OptionData != 0 {
 			buf.Copy(NewStreamReader(reader), buf.Discard)
 		}
 		return errors.New("failed to dispatch request.").Base(err)
@@ -285,7 +286,7 @@ func (w *ServerWorker) handleStatusNew(ctx context.Context, meta *FrameMetadata,
 		return errors.New("failed to add new session")
 	}
 	go handle(ctx, s, w.link.Writer)
-	if !meta.Option.Has(OptionData) {
+	if meta.Option&OptionData == 0 {
 		return nil
 	}
 
@@ -300,7 +301,7 @@ func (w *ServerWorker) handleStatusNew(ctx context.Context, meta *FrameMetadata,
 }
 
 func (w *ServerWorker) handleStatusKeep(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if !meta.Option.Has(OptionData) {
+	if meta.Option&OptionData == 0 {
 		return nil
 	}
 
@@ -329,7 +330,7 @@ func (w *ServerWorker) handleStatusEnd(meta *FrameMetadata, reader *buf.Buffered
 	if s, found := w.sessionManager.Get(meta.SessionID); found {
 		s.Close(false)
 	}
-	if meta.Option.Has(OptionData) {
+	if meta.Option&OptionData != 0 {
 		return buf.Copy(NewStreamReader(reader), buf.Discard)
 	}
 	return nil
@@ -363,11 +364,7 @@ func (w *ServerWorker) handleFrame(ctx context.Context, reader *buf.BufferedRead
 }
 
 func (w *ServerWorker) run(ctx context.Context) {
-	defer func() {
-		if err := w.done.Close(); err != nil {
-			panic(err)
-		}
-	}()
+	defer w.doneCancel()
 
 	reader := &buf.BufferedReader{Reader: w.link.Reader}
 

@@ -1,13 +1,12 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"io"
 
-	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/serial"
 )
 
 type AddressOption func(*option)
@@ -149,7 +148,10 @@ func readPort(b *buf.Buffer, reader io.Reader) (net.Port, error) {
 }
 
 func writePort(writer io.Writer, port net.Port) error {
-	return common.Error2(serial.WriteUint16(writer, port.Value()))
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], port.Value())
+	_, err := writer.Write(b[:])
+	return err
 }
 
 func maybeIPPrefix(b byte) bool {

@@ -3,83 +3,69 @@ package signal
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/task"
 )
 
 type ActivityUpdater interface {
 	Update()
 }
 
+// ActivityTimer cancels its context after timeout without Update.
+// ponytail: single time.Timer replaces the task.Periodic checker;
+// same API, exact timeout instead of up-to-2x check granularity.
 type ActivityTimer struct {
-	mu        sync.RWMutex
-	updated   chan struct{}
-	checkTask *task.Periodic
+	mu        sync.Mutex
+	timer     *time.Timer
+	timeout   time.Duration
 	onTimeout func()
-	consumed  atomic.Bool
-	once      sync.Once
+	finished  bool
 }
 
 func (t *ActivityTimer) Update() {
-	select {
-	case t.updated <- struct{}{}:
-	default:
-	}
-}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-func (t *ActivityTimer) check() error {
-	select {
-	case <-t.updated:
-	default:
-		t.finish()
+	if t.finished {
+		return
 	}
-	return nil
+	if t.timer != nil {
+		t.timer.Stop()
+	}
+	if t.timeout > 0 {
+		t.timer = time.AfterFunc(t.timeout, t.finish)
+	}
 }
 
 func (t *ActivityTimer) finish() {
-	t.once.Do(func() {
-		t.consumed.Store(true)
-		t.mu.Lock()
-		defer t.mu.Unlock()
+	t.mu.Lock()
+	if t.finished {
+		t.mu.Unlock()
+		return
+	}
+	t.finished = true
+	t.mu.Unlock()
 
-		common.CloseIfExists(t.checkTask)
-		t.onTimeout()
-	})
+	t.onTimeout()
 }
 
 func (t *ActivityTimer) SetTimeout(timeout time.Duration) {
-	if t.consumed.Load() {
+	t.mu.Lock()
+	if t.finished {
+		t.mu.Unlock()
 		return
 	}
+	t.timeout = timeout
+	t.mu.Unlock()
+
 	if timeout == 0 {
 		t.finish()
 		return
 	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	// double check, just in case
-	if t.consumed.Load() {
-		return
-	}
-	newCheckTask := &task.Periodic{
-		Interval: timeout,
-		Execute:  t.check,
-	}
-	common.CloseIfExists(t.checkTask)
-	t.checkTask = newCheckTask
 	t.Update()
-	if err := newCheckTask.Start(); err != nil {
-		panic(err)
-	}
 }
 
 func CancelAfterInactivity(ctx context.Context, cancel context.CancelFunc, timeout time.Duration) *ActivityTimer {
 	timer := &ActivityTimer{
-		updated:   make(chan struct{}, 1),
 		onTimeout: cancel,
 	}
 	timer.SetTimeout(timeout)
