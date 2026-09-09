@@ -5,23 +5,24 @@ import (
 	"net"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/xtls/xray-core/app/log"
 	"github.com/xtls/xray-core/common"
 	clog "github.com/xtls/xray-core/common/log"
-	"github.com/xtls/xray-core/testing/mocks"
 )
 
-func TestCustomLogHandler(t *testing.T) {
-	mockCtl := gomock.NewController(t)
-	defer mockCtl.Finish()
+// ponytail: local fake replaces deleted testing/mocks LogHandler.
+type recordHandler struct {
+	logged *[]string
+}
 
+func (h recordHandler) Handle(msg clog.Message) {
+	*h.logged = append(*h.logged, msg.String())
+}
+
+func TestCustomLogHandler(t *testing.T) {
 	var loggedValue []string
 
-	mockHandler := mocks.NewLogHandler(mockCtl)
-	mockHandler.EXPECT().Handle(gomock.Any()).AnyTimes().DoAndReturn(func(msg clog.Message) {
-		loggedValue = append(loggedValue, msg.String())
-	})
+	mockHandler := recordHandler{logged: &loggedValue}
 
 	log.RegisterHandlerCreator(log.LogType_Console, func(lt log.LogType, options log.HandlerCreatorOptions) (clog.Handler, error) {
 		return mockHandler, nil

@@ -5,20 +5,25 @@ import (
 	"io"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/testing/mocks"
 )
 
+// ponytail: local fakes replace deleted testing/mocks Reader/Writer.
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) {
+	return 0, errors.New("error")
+}
+
+type errWriter struct{}
+
+func (errWriter) Write([]byte) (int, error) {
+	return 0, errors.New("error")
+}
+
 func TestReadError(t *testing.T) {
-	mockCtl := gomock.NewController(t)
-	defer mockCtl.Finish()
-
-	mockReader := mocks.NewReader(mockCtl)
-	mockReader.EXPECT().Read(gomock.Any()).Return(0, errors.New("error"))
-
-	err := buf.Copy(buf.NewReader(mockReader), buf.Discard)
+	err := buf.Copy(buf.NewReader(errReader{}), buf.Discard)
 	if err == nil {
 		t.Fatal("expected error, but nil")
 	}
@@ -33,13 +38,7 @@ func TestReadError(t *testing.T) {
 }
 
 func TestWriteError(t *testing.T) {
-	mockCtl := gomock.NewController(t)
-	defer mockCtl.Finish()
-
-	mockWriter := mocks.NewWriter(mockCtl)
-	mockWriter.EXPECT().Write(gomock.Any()).Return(0, errors.New("error"))
-
-	err := buf.Copy(buf.NewReader(rand.Reader), buf.NewWriter(mockWriter))
+	err := buf.Copy(buf.NewReader(rand.Reader), buf.NewWriter(errWriter{}))
 	if err == nil {
 		t.Fatal("expected error, but nil")
 	}

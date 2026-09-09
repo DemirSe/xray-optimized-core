@@ -5,26 +5,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/mux"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/testing/mocks"
 	"github.com/xtls/xray-core/transport"
 	"github.com/xtls/xray-core/transport/pipe"
 )
 
+// ponytail: local stub replaces deleted testing/mocks MuxClientWorkerFactory.
+type stubWorkerFactory struct {
+	create func() (*mux.ClientWorker, error)
+}
+
+func (f stubWorkerFactory) Create() (*mux.ClientWorker, error) {
+	return f.create()
+}
+
 func TestIncrementalPickerFailure(t *testing.T) {
-	mockCtl := gomock.NewController(t)
-	defer mockCtl.Finish()
-
-	mockWorkerFactory := mocks.NewMuxClientWorkerFactory(mockCtl)
-	mockWorkerFactory.EXPECT().Create().Return(nil, errors.New("test"))
-
 	picker := mux.IncrementalWorkerPicker{
-		Factory: mockWorkerFactory,
+		Factory: stubWorkerFactory{create: func() (*mux.ClientWorker, error) {
+			return nil, errors.New("test")
+		}},
 	}
 
 	_, err := picker.PickAvailable()
@@ -53,9 +56,6 @@ func TestClientWorkerEOF(t *testing.T) {
 }
 
 func TestClientWorkerClose(t *testing.T) {
-	mockCtl := gomock.NewController(t)
-	defer mockCtl.Finish()
-
 	r1, w1 := pipe.New(pipe.WithoutSizeLimit())
 	worker1, err := mux.NewClientWorker(transport.Link{
 		Reader: r1,
@@ -80,11 +80,13 @@ func TestClientWorkerClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	factory := mocks.NewMuxClientWorkerFactory(mockCtl)
-	gomock.InOrder(
-		factory.EXPECT().Create().Return(worker1, nil),
-		factory.EXPECT().Create().Return(worker2, nil),
-	)
+	workers := []*mux.ClientWorker{worker1, worker2}
+	next := 0
+	factory := stubWorkerFactory{create: func() (*mux.ClientWorker, error) {
+		w := workers[next]
+		next++
+		return w, nil
+	}}
 
 	picker := &mux.IncrementalWorkerPicker{
 		Factory: factory,
