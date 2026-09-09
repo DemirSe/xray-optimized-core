@@ -70,9 +70,7 @@ func (f DNSThenOthersSniffResult) Domain() string {
 	return f.domainName
 }
 
-func newFakeDNSThenOthers(fakeDNSSniffer protocolSnifferWithMetadata, fakeDNSEngine dns.FakeDNSEngine, others []protocolSnifferWithMetadata) (
-	protocolSnifferWithMetadata, error,
-) { // nolint: unparam
+func newFakeDNSThenOthers(fakeDNSSniffer protocolSnifferWithMetadata, fakeDNSEngine dns.FakeDNSEngine, others []protocolSnifferWithMetadata) protocolSnifferWithMetadata {
 	return protocolSnifferWithMetadata{
 		protocolSniffer: func(ctx context.Context, bytes []byte) (SniffResult, error) {
 			result, err := fakeDNSSniffer.protocolSniffer(ctx, bytes)
@@ -101,5 +99,5 @@ func newFakeDNSThenOthers(fakeDNSSniffer protocolSnifferWithMetadata, fakeDNSEng
 			return nil, common.ErrNoClue
 		},
 		metadataSniffer: false,
-	}, nil
+	}
 }

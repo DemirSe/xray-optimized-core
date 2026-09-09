@@ -26,9 +26,6 @@ type Route interface {
 	// A Route is also a routing context.
 	Context
 
-	// GetOutboundGroupTags returns the detoured outbound group tags in sequence before a final outbound is chosen.
-	GetOutboundGroupTags() []string
-
 	// GetOutboundTag returns the tag of the outbound the connection was dispatched to.
 	GetOutboundTag() string
 

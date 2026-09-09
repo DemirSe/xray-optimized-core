@@ -46,10 +46,8 @@ func NewSniffer(ctx context.Context) *Sniffer {
 	if sniffer, fakeDNSEngine, err := newFakeDNSSniffer(ctx); err == nil {
 		others := ret.sniffer
 		ret.sniffer = append(ret.sniffer, sniffer)
-		fakeDNSThenOthers, err := newFakeDNSThenOthers(sniffer, fakeDNSEngine, others)
-		if err == nil {
-			ret.sniffer = append([]protocolSnifferWithMetadata{fakeDNSThenOthers}, ret.sniffer...)
-		}
+		fakeDNSThenOthers := newFakeDNSThenOthers(sniffer, fakeDNSEngine, others)
+		ret.sniffer = append([]protocolSnifferWithMetadata{fakeDNSThenOthers}, ret.sniffer...)
 	}
 	return ret
 }
