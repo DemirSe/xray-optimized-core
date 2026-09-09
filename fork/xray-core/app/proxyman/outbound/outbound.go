@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	stderrors "errors"
 	"sort"
 	"strings"
 	"sync"
@@ -75,7 +76,7 @@ func (m *Manager) Close() error {
 		errs = append(errs, h.Close())
 	}
 
-	return errors.Combine(errs...)
+	return stderrors.Join(errs...)
 }
 
 // GetDefaultHandler implements outbound.Manager.

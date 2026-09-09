@@ -1,6 +1,6 @@
 package common
 
-import "github.com/xtls/xray-core/common/errors"
+import "errors"
 
 // Closable is the interface for objects that can release its resources.
 //
@@ -64,5 +64,5 @@ func (cc ChainedClosable) Close() error {
 			errs = append(errs, err)
 		}
 	}
-	return errors.Combine(errs...)
+	return errors.Join(errs...)
 }

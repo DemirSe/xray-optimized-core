@@ -2,9 +2,9 @@ package reverse
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	core "github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/outbound"
@@ -92,5 +92,5 @@ func (r *Reverse) Close() error {
 		errs = append(errs, p.Close())
 	}
 
-	return errors.Combine(errs...)
+	return stderrors.Join(errs...)
 }

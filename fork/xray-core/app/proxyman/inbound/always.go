@@ -2,6 +2,7 @@ package inbound
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/common"
@@ -186,7 +187,7 @@ func (h *AlwaysOnInboundHandler) Close() error {
 		errs = append(errs, worker.Close())
 	}
 	errs = append(errs, h.mux.Close())
-	if err := errors.Combine(errs...); err != nil {
+	if err := stderrors.Join(errs...); err != nil {
 		return errors.New("failed to close all resources").Base(err)
 	}
 	return nil

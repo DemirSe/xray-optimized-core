@@ -5,6 +5,7 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"encoding/base64"
+	stderrors "errors"
 	"io"
 	"reflect"
 	"strconv"
@@ -234,7 +235,7 @@ func (h *Handler) Close() error {
 	for _, u := range h.validator.GetAll() {
 		h.RemoveReverse(u)
 	}
-	return errors.Combine(common.Close(h.validator))
+	return stderrors.Join(common.Close(h.validator))
 }
 
 // AddUser implements proxy.UserManager.AddUser().
