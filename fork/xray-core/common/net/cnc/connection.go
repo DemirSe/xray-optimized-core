@@ -10,40 +10,13 @@ import (
 	"github.com/xtls/xray-core/common/net"
 )
 
-type ConnectionOption func(*Connection)
-
-func ConnectionInputMulti(writer buf.Writer) ConnectionOption {
-	return func(c *Connection) {
-		c.writer = writer
-	}
-}
-
-func ConnectionOutputMulti(reader buf.Reader) ConnectionOption {
-	return func(c *Connection) {
-		c.reader = &buf.BufferedReader{Reader: reader}
-	}
-}
-
-func ConnectionOutputMultiUDP(reader buf.Reader) ConnectionOption {
-	return func(c *Connection) {
-		c.reader = &buf.BufferedReader{
-			Reader:   reader,
-			Splitter: buf.SplitFirstBytes,
-		}
-	}
-}
-
-func ConnectionOnClose(n io.Closer) ConnectionOption {
-	return func(c *Connection) {
-		c.onClose = n
-	}
-}
-
-func NewConnection(opts ...ConnectionOption) net.Conn {
+func NewConnection(reader buf.Reader, writer buf.Writer, onClose io.Closer, isUDP bool) net.Conn {
 	doneCtx, doneCancel := context.WithCancel(context.Background())
 	c := &Connection{
 		doneCtx:    doneCtx,
 		doneCancel: doneCancel,
+		writer:     writer,
+		onClose:    onClose,
 		local: &net.TCPAddr{
 			IP:   []byte{0, 0, 0, 0},
 			Port: 0,
@@ -53,11 +26,14 @@ func NewConnection(opts ...ConnectionOption) net.Conn {
 			Port: 0,
 		},
 	}
-
-	for _, opt := range opts {
-		opt(c)
+	if isUDP {
+		c.reader = &buf.BufferedReader{
+			Reader:   reader,
+			Splitter: buf.SplitFirstBytes,
+		}
+	} else {
+		c.reader = &buf.BufferedReader{Reader: reader}
 	}
-
 	return c
 }
 

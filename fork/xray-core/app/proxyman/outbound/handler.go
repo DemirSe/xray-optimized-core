@@ -281,12 +281,11 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (net.Conn, err
 					Target: dest,
 					Tag:    tag,
 				})) // add another outbound in session ctx
-				opts := pipe.OptionsFromContext(ctx)
-				uplinkReader, uplinkWriter := pipe.New(opts...)
-				downlinkReader, downlinkWriter := pipe.New(opts...)
+				uplinkReader, uplinkWriter := pipe.NewFromContext(ctx)
+				downlinkReader, downlinkWriter := pipe.NewFromContext(ctx)
 
 				go handler.Dispatch(ctx, &transport.Link{Reader: uplinkReader, Writer: downlinkWriter})
-				conn := cnc.NewConnection(cnc.ConnectionInputMulti(uplinkWriter), cnc.ConnectionOutputMulti(downlinkReader))
+				conn := cnc.NewConnection(downlinkReader, uplinkWriter, nil, false)
 
 				if config := tls.ConfigFromStreamSettings(h.streamSettings); config != nil {
 					tlsConfig := config.GetTLSConfig(tls.WithDestination(dest))

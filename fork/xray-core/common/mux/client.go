@@ -137,9 +137,8 @@ type DialingWorkerFactory struct {
 }
 
 func (f *DialingWorkerFactory) Create() (*ClientWorker, error) {
-	opts := []pipe.Option{pipe.WithSizeLimit(64 * 1024)}
-	uplinkReader, upLinkWriter := pipe.New(opts...)
-	downlinkReader, downlinkWriter := pipe.New(opts...)
+	uplinkReader, upLinkWriter := pipe.New(64*1024, false)
+	downlinkReader, downlinkWriter := pipe.New(64*1024, false)
 
 	c, err := NewClientWorker(transport.Link{
 		Reader: downlinkReader,

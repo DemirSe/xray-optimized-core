@@ -12,7 +12,7 @@ import (
 )
 
 func TestBytesReaderWriteTo(t *testing.T) {
-	pReader, pWriter := pipe.New(pipe.WithSizeLimit(1024))
+	pReader, pWriter := pipe.New(1024, false)
 	reader := &BufferedReader{Reader: pReader}
 	b1 := New()
 	b1.WriteString("abc")
@@ -23,7 +23,7 @@ func TestBytesReaderWriteTo(t *testing.T) {
 	}
 	pWriter.Close()
 
-	pReader2, pWriter2 := pipe.New(pipe.WithSizeLimit(1024))
+	pReader2, pWriter2 := pipe.New(1024, false)
 	writer := NewBufferedWriter(pWriter2)
 	writer.SetBuffered(false)
 
@@ -45,7 +45,7 @@ func TestBytesReaderWriteTo(t *testing.T) {
 }
 
 func TestBytesReaderMultiBuffer(t *testing.T) {
-	pReader, pWriter := pipe.New(pipe.WithSizeLimit(1024))
+	pReader, pWriter := pipe.New(1024, false)
 	reader := &BufferedReader{Reader: pReader}
 	b1 := New()
 	b1.WriteString("abc")

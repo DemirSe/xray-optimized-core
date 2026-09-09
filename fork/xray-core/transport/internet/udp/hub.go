@@ -11,25 +11,10 @@ import (
 	"github.com/xtls/xray-core/transport/internet"
 )
 
-type HubOption func(h *Hub)
-
-func HubCapacity(capacity int) HubOption {
-	return func(h *Hub) {
-		h.capacity = capacity
-	}
-}
-
-func HubReceiveOriginalDestination(r bool) HubOption {
-	return func(h *Hub) {
-		h.recvOrigDest = r
-	}
-}
-
 type Hub struct {
 	conn         net.PacketConn
 	udpConn      *net.UDPConn
 	cache        chan *udp.Packet
-	capacity     int
 	recvOrigDest bool
 }
 
@@ -40,14 +25,8 @@ var oobPool = sync.Pool{
 	},
 }
 
-func ListenUDP(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, options ...HubOption) (*Hub, error) {
-	hub := &Hub{
-		capacity:     256,
-		recvOrigDest: false,
-	}
-	for _, opt := range options {
-		opt(hub)
-	}
+func ListenUDP(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig) (*Hub, error) {
+	hub := &Hub{}
 
 	if address.Family().IsDomain() && address.Domain() == "localhost" {
 		address = net.LocalHostIP
@@ -87,7 +66,7 @@ func ListenUDP(ctx context.Context, address net.Address, port net.Port, streamSe
 	errors.LogInfo(ctx, "listening UDP on ", address, ":", port)
 	hub.udpConn, _ = hub.conn.(*net.UDPConn)
 	// ponytail: not pooled — closed on shutdown and ranged over by receivers; closed chans can't be reused.
-	hub.cache = make(chan *udp.Packet, hub.capacity)
+	hub.cache = make(chan *udp.Packet, 256)
 
 	go hub.start()
 	return hub, nil

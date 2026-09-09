@@ -12,47 +12,10 @@ import (
 	"github.com/xtls/xray-core/features/policy"
 )
 
-// Option for creating new Pipes.
-type Option func(*pipeOption)
-
-// WithoutSizeLimit returns an Option for Pipe to have no size limit.
-func WithoutSizeLimit() Option {
-	return func(opt *pipeOption) {
-		opt.limit = -1
-	}
-}
-
-// WithSizeLimit returns an Option for Pipe to have the given size limit.
-func WithSizeLimit(limit int32) Option {
-	return func(opt *pipeOption) {
-		opt.limit = limit
-	}
-}
-
-// DiscardOverflow returns an Option for Pipe to discard writes if full.
-func DiscardOverflow() Option {
-	return func(opt *pipeOption) {
-		opt.discardOverflow = true
-	}
-}
-
-// OptionsFromContext returns a list of Options from context.
-func OptionsFromContext(ctx context.Context) []Option {
-	var opt []Option
-
-	bp := policy.BufferPolicyFromContext(ctx)
-	if bp.PerConnection >= 0 {
-		// ponytail: not pooled — escapes to callers; pooling needs caller-side release, costlier than this alloc.
-		opt = append(opt, WithSizeLimit(bp.PerConnection))
-	} else {
-		opt = append(opt, WithoutSizeLimit())
-	}
-
-	return opt
-}
-
 // New creates a new Reader and Writer that connects to each other.
-func New(opts ...Option) (*Reader, *Writer) {
+// limit is the maximum buffer size in bytes; -1 means no size limit.
+// discard, when true, discards writes if the buffer is full instead of blocking.
+func New(limit int32, discard bool) (*Reader, *Writer) {
 	doneCtx, doneCancel := context.WithCancel(context.Background())
 	p := &pipe{
 		readSignal:  signal.NewNotifier(),
@@ -61,12 +24,9 @@ func New(opts ...Option) (*Reader, *Writer) {
 		doneCancel:  doneCancel,
 		errChan:     make(chan error, 1),
 		option: pipeOption{
-			limit: -1,
+			limit:           limit,
+			discardOverflow: discard,
 		},
-	}
-
-	for _, opt := range opts {
-		opt(&(p.option))
 	}
 
 	return &Reader{
@@ -74,6 +34,15 @@ func New(opts ...Option) (*Reader, *Writer) {
 		}, &Writer{
 			pipe: p,
 		}
+}
+
+// NewFromContext creates a new Reader and Writer with the buffer limit from context policy.
+func NewFromContext(ctx context.Context) (*Reader, *Writer) {
+	limit := policy.BufferPolicyFromContext(ctx).PerConnection
+	if limit < 0 {
+		limit = -1
+	}
+	return New(limit, false)
 }
 
 type state byte

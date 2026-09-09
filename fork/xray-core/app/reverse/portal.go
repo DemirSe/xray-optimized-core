@@ -232,9 +232,8 @@ type PortalWorker struct {
 }
 
 func NewPortalWorker(client *mux.ClientWorker) (*PortalWorker, error) {
-	opt := []pipe.Option{pipe.WithSizeLimit(16 * 1024)}
-	uplinkReader, uplinkWriter := pipe.New(opt...)
-	downlinkReader, downlinkWriter := pipe.New(opt...)
+	uplinkReader, uplinkWriter := pipe.New(16*1024, false)
+	downlinkReader, downlinkWriter := pipe.New(16*1024, false)
 
 	ctx := context.Background()
 	outbounds := []*session.Outbound{{

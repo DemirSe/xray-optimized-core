@@ -205,9 +205,8 @@ func (w *BridgeWorker) Dispatch(ctx context.Context, dest net.Destination) (*tra
 		return w.Dispatcher.Dispatch(ctx, dest)
 	}
 
-	opt := []pipe.Option{pipe.WithSizeLimit(16 * 1024)}
-	uplinkReader, uplinkWriter := pipe.New(opt...)
-	downlinkReader, downlinkWriter := pipe.New(opt...)
+	uplinkReader, uplinkWriter := pipe.New(16*1024, false)
+	downlinkReader, downlinkWriter := pipe.New(16*1024, false)
 
 	go w.handleInternalConn(&transport.Link{
 		Reader: downlinkReader,

@@ -290,7 +290,7 @@ func (w *udpWorker) getConnection(id connID) (*udpConn, bool) {
 		return conn, true
 	}
 
-	pReader, pWriter := pipe.New(pipe.DiscardOverflow(), pipe.WithSizeLimit(16*1024))
+	pReader, pWriter := pipe.New(16*1024, true)
 	doneCtx, doneCancel := context.WithCancel(context.Background())
 	conn := &udpConn{
 		reader: pReader,
@@ -427,7 +427,7 @@ func (w *udpWorker) clean() error {
 func (w *udpWorker) Start() error {
 	w.activeConn = make(map[connID]*udpConn, 16)
 	ctx := context.Background()
-	h, err := udp.ListenUDP(ctx, w.address, w.port, w.stream, udp.HubCapacity(256))
+	h, err := udp.ListenUDP(ctx, w.address, w.port, w.stream)
 	if err != nil {
 		return err
 	}

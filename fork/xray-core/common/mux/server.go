@@ -42,9 +42,8 @@ func (s *Server) Dispatch(ctx context.Context, dest net.Destination) (*transport
 		return s.dispatcher.Dispatch(ctx, dest)
 	}
 
-	opts := pipe.OptionsFromContext(ctx)
-	uplinkReader, uplinkWriter := pipe.New(opts...)
-	downlinkReader, downlinkWriter := pipe.New(opts...)
+	uplinkReader, uplinkWriter := pipe.NewFromContext(ctx)
+	downlinkReader, downlinkWriter := pipe.NewFromContext(ctx)
 
 	_, err := NewServerWorker(ctx, s.dispatcher, &transport.Link{
 		Reader: uplinkReader,

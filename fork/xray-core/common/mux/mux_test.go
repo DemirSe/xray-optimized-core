@@ -30,7 +30,7 @@ func readAll(reader buf.Reader) (buf.MultiBuffer, error) {
 }
 
 func TestReaderWriter(t *testing.T) {
-	pReader, pWriter := pipe.New(pipe.WithSizeLimit(1024))
+	pReader, pWriter := pipe.New(1024, false)
 
 	dest := net.TCPDestination(net.DomainAddress("example.com"), 80)
 	writer := NewWriter(1, dest, pWriter, protocol.TransferTypeStream, [8]byte{}, &session.Inbound{})

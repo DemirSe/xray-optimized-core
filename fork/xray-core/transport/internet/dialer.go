@@ -116,21 +116,11 @@ func redirect(ctx context.Context, dst net.Destination, obt string, h outbound.H
 		Tag:     obt,
 	})) // add another outbound in session ctx
 
-	ur, uw := pipe.New(pipe.OptionsFromContext(ctx)...)
-	dr, dw := pipe.New(pipe.OptionsFromContext(ctx)...)
+	ur, uw := pipe.NewFromContext(ctx)
+	dr, dw := pipe.NewFromContext(ctx)
 
 	go h.Dispatch(context.WithoutCancel(ctx), &transport.Link{Reader: ur, Writer: dw})
-	var readerOpt cnc.ConnectionOption
-	if dst.Network == net.Network_TCP {
-		readerOpt = cnc.ConnectionOutputMulti(dr)
-	} else {
-		readerOpt = cnc.ConnectionOutputMultiUDP(dr)
-	}
-	nc := cnc.NewConnection(
-		cnc.ConnectionInputMulti(uw),
-		readerOpt,
-		cnc.ConnectionOnClose(common.ChainedClosable{uw, dw}),
-	)
+	nc := cnc.NewConnection(dr, uw, common.ChainedClosable{uw, dw}, dst.Network != net.Network_TCP)
 	return nc
 
 }

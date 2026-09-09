@@ -15,7 +15,7 @@ import (
 )
 
 func TestPipeReadWrite(t *testing.T) {
-	pReader, pWriter := New(WithSizeLimit(1024))
+	pReader, pWriter := New(1024, false)
 
 	b := buf.New()
 	b.WriteString("abcd")
@@ -39,7 +39,7 @@ func TestPipeReadWrite(t *testing.T) {
 }
 
 func TestPipeInterrupt(t *testing.T) {
-	pReader, pWriter := New(WithSizeLimit(1024))
+	pReader, pWriter := New(1024, false)
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	b.Write(payload)
@@ -58,7 +58,7 @@ func TestPipeInterrupt(t *testing.T) {
 }
 
 func TestPipeClose(t *testing.T) {
-	pReader, pWriter := New(WithSizeLimit(1024))
+	pReader, pWriter := New(1024, false)
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	common.Must2(b.Write(payload))
@@ -87,7 +87,7 @@ func TestPipeClose(t *testing.T) {
 }
 
 func TestPipeLimitZero(t *testing.T) {
-	pReader, pWriter := New(WithSizeLimit(0))
+	pReader, pWriter := New(0, false)
 	bb := buf.New()
 	common.Must2(bb.Write([]byte{'a', 'b'}))
 	if err := common.Must(pWriter.WriteMultiBuffer(buf.MultiBuffer{bb})); err != nil {
@@ -123,7 +123,7 @@ func TestPipeLimitZero(t *testing.T) {
 }
 
 func TestPipeWriteMultiThread(t *testing.T) {
-	pReader, pWriter := New(WithSizeLimit(0))
+	pReader, pWriter := New(0, false)
 
 	var errg errgroup.Group
 	for i := 0; i < 10; i++ {
@@ -156,7 +156,7 @@ func TestInterfaces(t *testing.T) {
 }
 
 func BenchmarkPipeReadWrite(b *testing.B) {
-	reader, writer := New(WithoutSizeLimit())
+	reader, writer := New(-1, false)
 	a := buf.New()
 	a.Extend(buf.Size)
 	c := buf.MultiBuffer{a}

@@ -42,8 +42,8 @@ func (*TestDispatcher) Type() interface{} {
 
 func TestSameDestinationDispatching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	uplinkReader, uplinkWriter := pipe.New(pipe.WithSizeLimit(1024))
-	downlinkReader, downlinkWriter := pipe.New(pipe.WithSizeLimit(1024))
+	uplinkReader, uplinkWriter := pipe.New(1024, false)
+	downlinkReader, downlinkWriter := pipe.New(1024, false)
 
 	go func() {
 		for {

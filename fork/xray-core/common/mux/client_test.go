@@ -37,7 +37,7 @@ func TestIncrementalPickerFailure(t *testing.T) {
 }
 
 func TestClientWorkerEOF(t *testing.T) {
-	reader, writer := pipe.New(pipe.WithoutSizeLimit())
+	reader, writer := pipe.New(-1, false)
 	if err := common.Must(writer.Close()); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestClientWorkerEOF(t *testing.T) {
 }
 
 func TestClientWorkerClose(t *testing.T) {
-	r1, w1 := pipe.New(pipe.WithoutSizeLimit())
+	r1, w1 := pipe.New(-1, false)
 	worker1, err := mux.NewClientWorker(transport.Link{
 		Reader: r1,
 		Writer: w1,
@@ -68,7 +68,7 @@ func TestClientWorkerClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r2, w2 := pipe.New(pipe.WithoutSizeLimit())
+	r2, w2 := pipe.New(-1, false)
 	worker2, err := mux.NewClientWorker(transport.Link{
 		Reader: r2,
 		Writer: w2,
@@ -95,7 +95,7 @@ func TestClientWorkerClose(t *testing.T) {
 		Picker: picker,
 	}
 
-	tr1, tw1 := pipe.New(pipe.WithoutSizeLimit())
+	tr1, tw1 := pipe.New(-1, false)
 	ctx1 := session.ContextWithOutbounds(context.Background(), []*session.Outbound{{
 		Target: net.TCPDestination(net.DomainAddress("www.example.com"), 80),
 	}})
@@ -116,7 +116,7 @@ func TestClientWorkerClose(t *testing.T) {
 		t.Error("worker1 is not finished")
 	}
 
-	tr2, tw2 := pipe.New(pipe.WithoutSizeLimit())
+	tr2, tw2 := pipe.New(-1, false)
 	ctx2 := session.ContextWithOutbounds(context.Background(), []*session.Outbound{{
 		Target: net.TCPDestination(net.DomainAddress("www.example.com"), 80),
 	}})
