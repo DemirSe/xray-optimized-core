@@ -6,9 +6,8 @@ import (
 	goerrors "errors"
 	"io"
 	"math/big"
+	mathrand "math/rand"
 	"os"
-
-	"github.com/xtls/xray-core/common/dice"
 
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/common"
@@ -199,7 +198,7 @@ func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
 
 		} else {
 			unchangedDomain := ob.Target.Address.Domain()
-			ob.Target.Address = net.IPAddress(ips[dice.Roll(len(ips))])
+			ob.Target.Address = net.IPAddress(ips[mathrand.Intn(len(ips))])
 			errors.LogInfo(ctx, "target: ", unchangedDomain, " resolved to: ", ob.Target.Address.String())
 		}
 	}

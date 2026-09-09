@@ -3,12 +3,11 @@ package reverse
 import (
 	"crypto/rand"
 	"io"
-
-	"github.com/xtls/xray-core/common/dice"
+	mathrand "math/rand"
 )
 
 func (c *Control) FillInRandom() {
-	randomLength := dice.Roll(64)
+	randomLength := mathrand.Intn(64)
 	randomLength++
 	c.Random = make([]byte, randomLength)
 	io.ReadFull(rand.Reader, c.Random)

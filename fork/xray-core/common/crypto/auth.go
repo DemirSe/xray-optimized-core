@@ -7,7 +7,6 @@ import (
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/bytespool"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/protocol"
 )
@@ -185,8 +184,8 @@ func (r *AuthenticationReader) readInternal(soft bool, mb *buf.MultiBuffer) erro
 		return nil
 	}
 
-	payload := bytespool.Alloc(int32(size))
-	defer bytespool.Free(payload)
+	// ponytail: plain alloc; old pooled scratch had identical correctness.
+	payload := make([]byte, size)
 
 	if _, err := io.ReadFull(r.reader, payload[:size]); err != nil {
 		return err

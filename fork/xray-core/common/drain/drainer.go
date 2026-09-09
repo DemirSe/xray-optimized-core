@@ -2,8 +2,8 @@ package drain
 
 import (
 	"io"
+	"math/rand"
 
-	"github.com/xtls/xray-core/common/dice"
 	"github.com/xtls/xray-core/common/errors"
 )
 
@@ -12,10 +12,10 @@ type BehaviorSeedLimitedDrainer struct {
 }
 
 func NewBehaviorSeedLimitedDrainer(behaviorSeed int64, drainFoundation, maxBaseDrainSize, maxRandDrain int) (Drainer, error) {
-	behaviorRand := dice.NewDeterministicDice(behaviorSeed)
-	BaseDrainSize := behaviorRand.Roll(maxBaseDrainSize)
-	RandDrainMax := behaviorRand.Roll(maxRandDrain) + 1
-	RandDrainRolled := dice.Roll(RandDrainMax)
+	behaviorRand := rand.New(rand.NewSource(behaviorSeed))
+	BaseDrainSize := behaviorRand.Intn(maxBaseDrainSize)
+	RandDrainMax := behaviorRand.Intn(maxRandDrain) + 1
+	RandDrainRolled := rand.Intn(RandDrainMax)
 	DrainSize := drainFoundation + BaseDrainSize + RandDrainRolled
 	return &BehaviorSeedLimitedDrainer{DrainSize: DrainSize}, nil
 }

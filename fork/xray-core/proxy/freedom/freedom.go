@@ -4,21 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	mathrand "math/rand"
+	"sync"
 	"time"
 
 	"github.com/pires/go-proxyproto"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/crypto"
-	"github.com/xtls/xray-core/common/dice"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/retry"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/common/signal"
 	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/common/utils"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/policy"
 	"github.com/xtls/xray-core/features/stats"
@@ -115,7 +114,8 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	output := link.Writer
 
 	var conn stat.Connection
-	err := retry.ExponentialBackoff(5, 100).On(func() error {
+	// ponytail: plain loop, same 5 attempts and waits (0,100,200,300,400ms) as retry.ExponentialBackoff(5, 100).
+	dial := func() error {
 		dialDest := destination
 		if h.config.DomainStrategy.HasStrategy() && dialDest.Address.Family().IsDomain() {
 			strategy := h.config.DomainStrategy
@@ -131,7 +131,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 			} else {
 				dialDest = net.Destination{
 					Network: dialDest.Network,
-					Address: net.IPAddress(ips[dice.Roll(len(ips))]),
+					Address: net.IPAddress(ips[mathrand.Intn(len(ips))]),
 					Port:    dialDest.Port,
 				}
 				errors.LogInfo(ctx, "dialing to ", dialDest)
@@ -156,7 +156,15 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 
 		conn = rawConn
 		return nil
-	})
+	}
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		err = dial()
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+	}
 	if err != nil {
 		return errors.New("failed to open connection to ", destination).Base(err)
 	}
@@ -325,7 +333,7 @@ func NewPacketWriter(conn net.Conn, h *Handler, UDPOverride net.Destination, Dia
 	if c, ok := iConn.(*internet.PacketConnWrapper); ok {
 		// If DialDest is a domain, it will be resolved in dialer
 		// check this behavior and add it to map
-		resolvedUDPAddr := utils.NewTypedSyncMap[string, net.Address]()
+		resolvedUDPAddr := &sync.Map{}
 		if DialDest.Address.Family().IsDomain() {
 			resolvedUDPAddr.Store(DialDest.Address.Domain(), net.DestinationFromAddr(conn.RemoteAddr()).Address)
 		}
@@ -352,7 +360,7 @@ type PacketWriter struct {
 	// But resolver will return a random one if the domain has many IPs
 	// Resulting in these packets being sent to many different IPs randomly
 	// So, cache and keep the resolve result
-	ResolvedUDPAddr *utils.TypedSyncMap[string, net.Address]
+	ResolvedUDPAddr *sync.Map
 	LocalAddr       net.Address
 }
 
@@ -373,9 +381,15 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				b.UDP.Port = w.UDPOverride.Port
 			}
 			if b.UDP.Address.Family().IsDomain() {
-				if ip, ok := w.ResolvedUDPAddr.Load(b.UDP.Address.Domain()); ok {
-					b.UDP.Address = ip
+				if v, ok := w.ResolvedUDPAddr.Load(b.UDP.Address.Domain()); ok {
+					// ponytail: sync.Map; stored values are never nil (guard keeps old nil-slot behavior).
+					if v != nil {
+						b.UDP.Address = v.(net.Address)
+					} else {
+						b.UDP.Address = nil
+					}
 				} else {
+					var ip net.Address
 					ShouldUseSystemResolver := true
 					if w.Handler.config.DomainStrategy.HasStrategy() {
 						ips, err := internet.LookupForIP(b.UDP.Address.Domain(), w.Handler.config.DomainStrategy, w.LocalAddr)
@@ -386,7 +400,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 								continue
 							}
 						} else {
-							ip = net.IPAddress(ips[dice.Roll(len(ips))])
+							ip = net.IPAddress(ips[mathrand.Intn(len(ips))])
 							ShouldUseSystemResolver = false
 						}
 					}
@@ -400,7 +414,11 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 						}
 					}
 					if ip != nil {
-						b.UDP.Address, _ = w.ResolvedUDPAddr.LoadOrStore(b.UDP.Address.Domain(), ip)
+						if v, _ := w.ResolvedUDPAddr.LoadOrStore(b.UDP.Address.Domain(), ip); v != nil {
+							b.UDP.Address = v.(net.Address)
+						} else {
+							b.UDP.Address = nil
+						}
 					}
 				}
 			}

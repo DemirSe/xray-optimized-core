@@ -1,9 +1,8 @@
 package protocol
 
 import (
+	"math/rand"
 	"time"
-
-	"github.com/xtls/xray-core/common/dice"
 )
 
 type Timestamp int64
@@ -16,7 +15,7 @@ func NowTime() Timestamp {
 
 func NewTimestampGenerator(base Timestamp, delta int) TimestampGenerator {
 	return func() Timestamp {
-		rangeInDelta := dice.Roll(delta*2) - delta
+		rangeInDelta := rand.Intn(delta*2) - delta
 		return base + Timestamp(rangeInDelta)
 	}
 }

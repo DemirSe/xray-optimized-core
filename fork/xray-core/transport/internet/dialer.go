@@ -3,10 +3,10 @@ package internet
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/dice"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/net/cnc"
@@ -261,7 +261,7 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 				return nil, err
 			}
 		} else if sockopt.HappyEyeballs == nil || sockopt.HappyEyeballs.TryDelayMs == 0 || sockopt.HappyEyeballs.MaxConcurrentTry == 0 || len(ips) < 2 || len(sockopt.DialerProxy) > 0 || dest.Network != net.Network_TCP {
-			dest.Address = net.IPAddress(ips[dice.Roll(len(ips))])
+			dest.Address = net.IPAddress(ips[rand.Intn(len(ips))])
 			errors.LogInfo(ctx, "replace destination with "+dest.String())
 		} else {
 			return TcpRaceDial(ctx, src, ips, dest.Port, sockopt, dest.Address.String())

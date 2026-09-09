@@ -21,7 +21,6 @@ import (
 	"github.com/xtls/xray-core/common/mux"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/retry"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/common/signal"
@@ -419,14 +418,22 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 			ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
 
 			var conn net.Conn
-			if err := retry.ExponentialBackoff(5, 100).On(func() error {
+			// ponytail: plain loop, same 5 attempts and waits (0,100,200,300,400ms) as retry.ExponentialBackoff(5, 100).
+			dial := func() error {
 				var dialer net.Dialer
-				conn, err = dialer.DialContext(ctx, fb.Type, fb.Dest)
-				if err != nil {
-					return err
+				var dialErr error
+				conn, dialErr = dialer.DialContext(ctx, fb.Type, fb.Dest)
+				return dialErr
+			}
+			var err error
+			for attempt := 0; attempt < 5; attempt++ {
+				err = dial()
+				if err == nil {
+					break
 				}
-				return nil
-			}); err != nil {
+				time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+			}
+			if err != nil {
 				return errors.New("failed to dial to " + fb.Dest).Base(err).AtWarning()
 			}
 			defer conn.Close()

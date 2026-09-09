@@ -2,8 +2,8 @@ package buf
 
 import (
 	"io"
+	"sync"
 
-	"github.com/xtls/xray-core/common/bytespool"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 )
@@ -15,7 +15,9 @@ const (
 
 var ErrBufferFull = errors.New("buffer is full")
 
-var pool = bytespool.GetPool(Size)
+// ponytail: single 8K pool; larger buffers are plain allocs (old tiered
+// pools recycled them too, same correctness, negligible GC at 2 call sites).
+var pool = sync.Pool{New: func() any { return make([]byte, Size) }}
 
 // ownership represents the data owner of the buffer.
 type ownership uint8
@@ -23,7 +25,6 @@ type ownership uint8
 const (
 	managed ownership = iota
 	unmanaged
-	bytespools
 )
 
 // Buffer is a recyclable allocation of a byte array. Buffer.Release() recycles
@@ -92,11 +93,11 @@ func StackNew() Buffer {
 	}
 }
 
-// NewWithSize creates a Buffer with 0 length and capacity with at least the given size, bytespool's.
+// NewWithSize creates a Buffer with 0 length and capacity with at least the given size.
 func NewWithSize(size int32) *Buffer {
 	return &Buffer{
-		v:         bytespool.Alloc(size),
-		ownership: bytespools,
+		v:         make([]byte, size),
+		ownership: managed,
 	}
 }
 
@@ -110,13 +111,9 @@ func (b *Buffer) Release() {
 	b.v = nil
 	b.Clear()
 
-	switch b.ownership {
-	case managed:
-		if cap(p) == Size {
-			pool.Put(p)
-		}
-	case bytespools:
-		bytespool.Free(p)
+	// ponytail: only 8K buffers recycle; other sizes drop (same correctness).
+	if b.ownership == managed && cap(p) == Size {
+		pool.Put(p)
 	}
 	b.UDP = nil
 }
