@@ -2,7 +2,9 @@ package policy
 
 import (
 	"context"
+	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/xtls/xray-core/common/platform"
@@ -86,7 +88,13 @@ var defaultBufferSize int32
 
 func init() {
 	const defaultValue = -17
-	size := platform.NewEnvFlag(platform.BufferSize).GetValueAsInt(defaultValue)
+	// ponytail: inline strconv; the only GetValueAsInt call site.
+	size := defaultValue
+	if raw := os.Getenv(platform.BufferSize); raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 32); err == nil {
+			size = int(v)
+		}
+	}
 
 	switch size {
 	case 0:

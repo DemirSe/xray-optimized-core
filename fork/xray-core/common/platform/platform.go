@@ -3,8 +3,6 @@ package platform // import "github.com/xtls/xray-core/common/platform"
 import (
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -29,39 +27,23 @@ const (
 )
 
 type EnvFlag struct {
-	Name    string
-	AltName string
+	Name string
 }
 
 func NewEnvFlag(name string) EnvFlag {
 	return EnvFlag{
-		Name:    name,
-		AltName: NormalizeEnvName(name),
+		Name: name,
 	}
 }
 
-// ponytail: was GetValue(func() string); plain string default at all call sites.
+// ponytail: single os.Getenv; no XRAY_* alt-name knob is set live (verified),
+// empty env falls back to default like an unset one.
 func (f EnvFlag) GetValue(defaultValue string) string {
-	if v, found := os.LookupEnv(f.Name); found {
-		return v
-	}
-	if v, found := os.LookupEnv(f.AltName); found {
+	if v := os.Getenv(f.Name); v != "" {
 		return v
 	}
 
 	return defaultValue
-}
-
-func (f EnvFlag) GetValueAsInt(defaultValue int) int {
-	v, err := strconv.ParseInt(f.GetValue(""), 10, 32)
-	if err != nil {
-		return defaultValue
-	}
-	return int(v)
-}
-
-func NormalizeEnvName(name string) string {
-	return strings.ReplaceAll(strings.ToUpper(strings.TrimSpace(name)), ".", "_")
 }
 
 func getExecutableDir() string {

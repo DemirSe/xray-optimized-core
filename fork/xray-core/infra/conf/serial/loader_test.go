@@ -21,7 +21,7 @@ func TestLoaderError(t *testing.T) {
 					"loglevel": "info"
 				}
 		}`,
-			Output: "line 4 char 6",
+			Output: "offset 27",
 		},
 		{
 			Input: `{
@@ -30,7 +30,7 @@ func TestLoaderError(t *testing.T) {
 					"loglevel": "info",
 				}
 		}`,
-			Output: "line 5 char 5",
+			Output: "offset 51",
 		},
 		{
 			Input: `{
@@ -49,7 +49,7 @@ func TestLoaderError(t *testing.T) {
 					"protocol": "test"
 				}]
 		}`,
-			Output: "line 1 char 1",
+			Output: "offset 1",
 		},
 	}
 	for _, testCase := range testCases {

@@ -10,35 +10,26 @@ import (
 	"github.com/xtls/xray-core/common/platform"
 )
 
-// Writer is the interface for writing logs.
-type Writer interface {
-	Write(string) error
-	io.Closer
-}
-
-// WriterCreator is a function to create LogWriters.
-type WriterCreator func() Writer
-
 type generalLogger struct {
-	creator WriterCreator
-	buffer  chan Message
+	logger *log.Logger
+	closer io.Closer
+	// ponytail: level check folded in from deleted serverityLogger.
+	logLevel Severity
+	buffer   chan Message
 	// ponytail: raw chan instead of semaphore.Instance (token held while run active).
 	access     chan struct{}
 	doneCtx    context.Context
 	doneCancel context.CancelFunc
 }
 
-type serverityLogger struct {
-	inner    *generalLogger
-	logLevel Severity
-}
-
-func newGeneralLogger(creator WriterCreator) *generalLogger {
+func newGeneralLogger(out io.Writer, closer io.Closer, level Severity) *generalLogger {
 	access := make(chan struct{}, 1)
 	access <- struct{}{}
 	doneCtx, doneCancel := context.WithCancel(context.Background())
 	return &generalLogger{
-		creator:    creator,
+		logger:     log.New(out, "", log.Ldate|log.Ltime|log.Lmicroseconds),
+		closer:     closer,
+		logLevel:   level,
 		buffer:     make(chan Message, 128),
 		access:     access,
 		doneCtx:    doneCtx,
@@ -47,26 +38,16 @@ func newGeneralLogger(creator WriterCreator) *generalLogger {
 }
 
 // NewLogger returns a generic log handler that can handle all type of messages.
-func NewLogger(logWriterCreator WriterCreator) Handler {
-	return newGeneralLogger(logWriterCreator)
+func NewLogger(out io.Writer) Handler {
+	var closer io.Closer
+	if c, ok := out.(io.Closer); ok {
+		closer = c
+	}
+	return newGeneralLogger(out, closer, Severity_Debug)
 }
 
 func ReplaceWithSeverityLogger(severity Severity) {
-	RegisterHandler(&serverityLogger{
-		inner:    newGeneralLogger(CreateStdoutLogWriter()),
-		logLevel: severity,
-	})
-}
-
-func (l *serverityLogger) Handle(msg Message) {
-	switch msg := msg.(type) {
-	case *GeneralMessage:
-		if msg.Severity <= l.logLevel {
-			l.inner.Handle(msg)
-		}
-	default:
-		l.inner.Handle(msg)
-	}
+	RegisterHandler(newGeneralLogger(os.Stdout, nil, severity))
 }
 
 func (l *generalLogger) run() {
@@ -76,18 +57,12 @@ func (l *generalLogger) run() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	logger := l.creator()
-	if logger == nil {
-		return
-	}
-	defer logger.Close()
-
 	for {
 		select {
 		case <-l.doneCtx.Done():
 			return
 		case msg := <-l.buffer:
-			logger.Write(msg.String() + platform.LineSeparator())
+			l.logger.Print(msg.String() + platform.LineSeparator())
 			dataWritten = true
 		case <-ticker.C:
 			if !dataWritten {
@@ -99,6 +74,9 @@ func (l *generalLogger) run() {
 }
 
 func (l *generalLogger) Handle(msg Message) {
+	if gm, ok := msg.(*GeneralMessage); ok && gm.Severity > l.logLevel {
+		return
+	}
 
 	select {
 	case l.buffer <- msg:
@@ -114,73 +92,21 @@ func (l *generalLogger) Handle(msg Message) {
 
 func (l *generalLogger) Close() error {
 	l.doneCancel()
-	return nil
-}
-
-type consoleLogWriter struct {
-	logger *log.Logger
-}
-
-func (w *consoleLogWriter) Write(s string) error {
-	w.logger.Print(s)
-	return nil
-}
-
-func (w *consoleLogWriter) Close() error {
-	return nil
-}
-
-type fileLogWriter struct {
-	file   *os.File
-	logger *log.Logger
-}
-
-func (w *fileLogWriter) Write(s string) error {
-	w.logger.Print(s)
-	return nil
-}
-
-func (w *fileLogWriter) Close() error {
-	return w.file.Close()
-}
-
-// CreateStdoutLogWriter returns a LogWriterCreator that creates LogWriter for stdout.
-func CreateStdoutLogWriter() WriterCreator {
-	return func() Writer {
-		return &consoleLogWriter{
-			logger: log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds),
-		}
+	if l.closer != nil {
+		return l.closer.Close()
 	}
+	return nil
 }
 
-// CreateStderrLogWriter returns a LogWriterCreator that creates LogWriter for stderr.
-func CreateStderrLogWriter() WriterCreator {
-	return func() Writer {
-		return &consoleLogWriter{
-			logger: log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds),
-		}
-	}
-}
-
-// CreateFileLogWriter returns a LogWriterCreator that creates LogWriter for the given file.
-func CreateFileLogWriter(path string) (WriterCreator, error) {
+// CreateFileLogWriter opens the log file once and returns it as an io.Writer.
+func CreateFileLogWriter(path string) (io.Writer, error) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}
-	file.Close()
-	return func() Writer {
-		file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-		if err != nil {
-			return nil
-		}
-		return &fileLogWriter{
-			file:   file,
-			logger: log.New(file, "", log.Ldate|log.Ltime|log.Lmicroseconds),
-		}
-	}, nil
+	return file, nil
 }
 
 func init() {
-	RegisterHandler(NewLogger(CreateStdoutLogWriter()))
+	RegisterHandler(NewLogger(os.Stdout))
 }

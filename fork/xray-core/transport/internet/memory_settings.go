@@ -16,7 +16,6 @@ type MemoryStreamConfig struct {
 	UdpmaskManager   *finalmask.UdpmaskManager
 	QuicParams       *QuicParams
 	SocketSettings   *SocketConfig
-	DownloadSettings *MemoryStreamConfig
 }
 
 // ToMemoryStreamConfig converts a StreamConfig to MemoryStreamConfig. It returns a default non-nil MemoryStreamConfig for nil input.

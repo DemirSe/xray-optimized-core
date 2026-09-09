@@ -1,6 +1,7 @@
 package log
 
 import (
+	"os"
 	"sync"
 
 	"github.com/xtls/xray-core/common/errors"
@@ -42,7 +43,7 @@ func createHandler(logType LogType, options HandlerCreatorOptions) (log.Handler,
 
 func init() {
 	if err := RegisterHandlerCreator(LogType_Console, func(lt LogType, options HandlerCreatorOptions) (log.Handler, error) {
-		return log.NewLogger(log.CreateStdoutLogWriter()), nil
+		return log.NewLogger(os.Stdout), nil
 	}); err != nil {
 		panic(err)
 	}

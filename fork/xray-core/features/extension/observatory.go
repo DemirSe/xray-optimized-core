@@ -13,10 +13,8 @@ type Observatory interface {
 	GetObservation(ctx context.Context) (proto.Message, error)
 }
 
-type BurstObservatory interface {
-	Observatory
-	Check(tag []string)
-}
+// ponytail: BurstObservatory deleted (zero in-tree impls); burst check is a
+// structural assert at the single call site instead of a named interface.
 
 func ObservatoryType() interface{} {
 	return (*Observatory)(nil)
