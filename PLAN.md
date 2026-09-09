@@ -11,7 +11,7 @@ Kural: kritik her bilgi 2 kaynaktan kontrol edilir.
 - Dest/SNI: her zaman yalnızca `whatsapp.net` (`dest=whatsapp.net:443`, `serverNames=[whatsapp.net]`). Başka domain veya alt domaine geçiş YOK; dest fallback YOK (kabul edilen risk: dest bozulursa bağlantı kesilir).
 - Fork kapsam: server-only kırpılmış build, client stock Hiddify sabit. Tut: VLESS+Reality+Vision+TCP+UDP+freedom+v4/v6, config şeması aynı. Kırp: VMess/Trojan/SS/gRPC/QUIC/API vb.
 - Test: stock-client+stock-server vs stock-client+fork-server, tekrarlı (sayı+metrik netleşecek). VPS-local loopback sadece binary CPU/RAM/throughput için, gerçek ağ testi ayrı.
-- Log: optimize bitene kadar açık (warning+access), sonra kapatılacak
+- Log: ~~optimize bitene kadar açık (warning+access), sonra kapatılacak~~ DONE (2026-09-06: access-log off).
 - SSH: şifre ile ilk giriş, hemen key'e geçilecek
 
 ## Çift-kontrol bulgular

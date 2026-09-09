@@ -41,7 +41,7 @@ Temizlik: `sudo ip netns del testwan` (veth'ler otomatik gider).
 ```bash
 sudo systemd-run --unit=xray-srv-t --collect -p Restart=no /usr/local/bin/xray run -c /tmp/tbench/srv-test.json
 sudo systemd-run --unit=xray-cli-ns --collect -p Restart=no /usr/bin/ip netns exec testwan /usr/local/bin/xray run -c /tmp/tbench/cli-ns.json
-# env ile: -p Environment=GOGC=20
+# env ile: -p Environment=GOGC=20  # canlı GOGC=1000 (2026-09-08); 20 rig A/B değeri, tarihsel.
 # durdurma: sudo systemctl stop xray-srv-t xray-cli-ns
 ```
 - Client: socks `127.0.0.1:10800` (ns içinden). Kullanım:
@@ -66,7 +66,7 @@ sudo ip netns exec testwan curl -s -o /dev/null --socks5-hostname 127.0.0.1:1080
 - **Baz:** 5×2MB (medyan) + 20×10KB (medyan). Karşılaştırma hep MEDYAN, alterne sırala.
 - **CC A/B:** `sudo /sbin/sysctl -w net.ipv4.tcp_congestion_control=bbr|cubic` + rig restart (yeni soket şart!).
 - **Yaprak qdisc A/B:** `tc qdisc add dev veth-host parent 1:1 handle 10: fq|fq_codel` (netem handle 1: altında).
-- **Log/GC A/B:** srv-debug.json vs srv-warn.json + `-p Environment=GOGC=20`.
+- **Log/GC A/B:** srv-debug.json vs srv-warn.json + `-p Environment=GOGC=20`. (canlı GOGC=1000 (2026-09-08); 20 tarihsel A/B değeri.)
 - **Multi (3 cihaz):** cli-10801/2/3.json (3 ayrı Reality conn) + /tmp/tbench/multi.sh
   (bulk 3×20MB + web 30×10KB + seyrek 15×10KB/2sn). Redirect'ler süslü parantez DIŞINA!
 - **Storm:** cli-10910..10919 (10 fresh conn) + paralel tek curl. **DİKKAT:** aynı IP'den çıkıyorlar;

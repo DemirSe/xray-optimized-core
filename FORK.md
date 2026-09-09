@@ -70,7 +70,7 @@ Kural: config şeması ve Reality handshake BİREBİR aynı kalır (client stock
   bozuldu (2–3s stall), fork 4/4 stabil ~0.3s. RSS fork 27MB / stock 38MB.
   Mekanizma bilinmiyor (server işleme anında, stall altta yatan TCP'de) — muhafazakar
   hüküm: fork stock'tan kötü değil, yükte daha stabil göründü.
-- Live `:443` fork binary (1374f79) + Meta forward doğrulandı.
+- Live `:443` fork binary (19567e2, sha256 afe0699a…) + Meta forward doğrulandı. (tarihsel: 1374f79 eski deploy; hash'ler her deploy'da döner.)
 - Rollback: `systemctl stop xray; cp /usr/local/bin/xray.stock-26.3.27 /usr/local/bin/xray; systemctl start xray`.
 
 ## Beklenen kazanç (ölçülmeden iddia yok)

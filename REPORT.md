@@ -17,10 +17,10 @@ Profilller (çift-yön): hafif 20ms/%0.2/500Mbit, std 40ms/%1/200Mbit, sert 100m
 2. **eth0 fq** — sysctl sonrası eth0 eski `fq_codel`'de kalmıştı, `tc replace` ile fq'ya geçti (kesintisiz).
 3. **Live TFO sockopt** (`streamSettings.sockopt.tcpFastOpen`) + restart, forward testi temiz.
 4. **Log warning + logrotate** — hız farkı yok (ölçüldü), ama debug live'da 4.3MB birikmişti; disk hijyeni.
-5. **GOGC=20** (systemd override) — hız/CPU farkı yok, ~3MB RAM (38.1→35.1MB).
+5. **GOGC=20** (systemd override) — hız/CPU farkı yok, ~3MB RAM (38.1→35.1MB). [tarihsel not (2026-09-08): canlı GOGC=1000; bu satır A/B dönemi değeri.]
 6. **syn_backlog 128→2048** — :443'te 356 TIME-WAIT birikimi görülmüştü (tarama churn'ü).
 7. **443 hashlimit** (IP-başı 20/dk, burst 8, kalıcı) — rig testinde 40 flood→10 OK/30 DROP,
-   legit ~0.28s etkilenmedi. SSH ayrı portta, kilit riski yok.
+   legit ~0.28s etkilenmedi. SSH ayrı portta, kilit riski yok. [tarihsel not: 2026-09-05'te kaldırıldı, canlıda yok.]
 8. **Hardening** — `demir` kullanıcısı + SSH key + şifresiz sudo, root SSH kapalı, şifre artıkları silindi.
 
 ## Reddedilenler (ölçüldü, faydasız)
