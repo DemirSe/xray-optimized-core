@@ -10,12 +10,11 @@ import (
 
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/transport/internet/stat"
 )
 
 const SO_ORIGINAL_DST = 80
 
-func GetOriginalDestination(conn stat.Connection) (net.Destination, error) {
+func GetOriginalDestination(conn net.Conn) (net.Destination, error) {
 	sysrawconn, f := conn.(syscall.Conn)
 	if !f {
 		return net.Destination{}, errors.New("unable to get syscall.Conn")

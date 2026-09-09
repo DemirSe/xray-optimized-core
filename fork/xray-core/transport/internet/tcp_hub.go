@@ -5,7 +5,6 @@ import (
 
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/transport/internet/stat"
 )
 
 var transportListenerCache = make(map[string]ListenFunc)
@@ -18,7 +17,7 @@ func RegisterTransportListener(protocol string, listener ListenFunc) error {
 	return nil
 }
 
-type ConnHandler func(stat.Connection)
+type ConnHandler func(net.Conn)
 
 type ListenFunc func(ctx context.Context, address net.Address, port net.Port, settings *MemoryStreamConfig, handler ConnHandler) (Listener, error)
 

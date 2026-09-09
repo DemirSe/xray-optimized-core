@@ -14,14 +14,13 @@ import (
 	"github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/transport"
-	"github.com/xtls/xray-core/transport/internet/stat"
 	"github.com/xtls/xray-core/transport/pipe"
 )
 
 // Dialer is the interface for dialing outbound connections.
 type Dialer interface {
 	// Dial dials a system connection to the given destination.
-	Dial(ctx context.Context, destination net.Destination) (stat.Connection, error)
+	Dial(ctx context.Context, destination net.Destination) (net.Conn, error)
 
 	// DestIpAddress returns the ip of proxy server. It is useful in case of Android client, which prepare an IP before proxy connection is established
 	DestIpAddress() net.IP
@@ -31,7 +30,7 @@ type Dialer interface {
 }
 
 // dialFunc is an interface to dial network connection to a specific destination.
-type dialFunc func(ctx context.Context, dest net.Destination, streamSettings *MemoryStreamConfig) (stat.Connection, error)
+type dialFunc func(ctx context.Context, dest net.Destination, streamSettings *MemoryStreamConfig) (net.Conn, error)
 
 var transportDialerCache = make(map[string]dialFunc)
 
@@ -45,7 +44,7 @@ func RegisterTransportDialer(protocol string, dialer dialFunc) error {
 }
 
 // Dial dials a internet connection towards the given destination.
-func Dial(ctx context.Context, dest net.Destination, streamSettings *MemoryStreamConfig) (stat.Connection, error) {
+func Dial(ctx context.Context, dest net.Destination, streamSettings *MemoryStreamConfig) (net.Conn, error) {
 	if dest.Network == net.Network_TCP {
 		if streamSettings == nil {
 			s, err := ToMemoryStreamConfig(nil)

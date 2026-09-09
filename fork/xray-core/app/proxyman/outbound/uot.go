@@ -8,10 +8,9 @@ import (
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/stat"
 )
 
-func (h *Handler) getUoTConnection(ctx context.Context, dest net.Destination) (stat.Connection, error) {
+func (h *Handler) getUoTConnection(ctx context.Context, dest net.Destination) (net.Conn, error) {
 	if dest.Address == nil {
 		return nil, errors.New("nil destination address")
 	}

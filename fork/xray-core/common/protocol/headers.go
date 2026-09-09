@@ -28,19 +28,6 @@ func (c RequestCommand) TransferType() TransferType {
 	}
 }
 
-const (
-	// [DEPRECATED 2023-06] RequestOptionChunkStream indicates request payload is chunked. Each chunk consists of length, authentication and payload.
-	RequestOptionChunkStream byte = 0x01
-
-	// 0x02 legacy setting
-
-	RequestOptionChunkMasking byte = 0x04
-
-	RequestOptionGlobalPadding byte = 0x08
-
-	RequestOptionAuthenticatedLength byte = 0x10
-)
-
 type RequestHeader struct {
 	Version  byte
 	Command  RequestCommand
@@ -62,21 +49,12 @@ const (
 	ResponseOptionConnectionReuse byte = 0x01
 )
 
-type ResponseCommand interface{}
-
-type ResponseHeader struct {
-	Option  byte
-	Command ResponseCommand
-}
-
 var (
 	// Keep in sync with crypto/tls/cipher_suites.go.
 	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ && cpu.X86.HasSSE41 && cpu.X86.HasSSSE3
 	hasGCMAsmARM64 = (cpu.ARM64.HasAES && cpu.ARM64.HasPMULL) || (runtime.GOOS == "darwin" && runtime.GOARCH == "arm64")
-	hasGCMAsmS390X = cpu.S390X.HasAES && cpu.S390X.HasAESCTR && cpu.S390X.HasGHASH
-	hasGCMAsmPPC64 = runtime.GOARCH == "ppc64" || runtime.GOARCH == "ppc64le"
 
-	HasAESGCMHardwareSupport = hasGCMAsmAMD64 || hasGCMAsmARM64 || hasGCMAsmS390X || hasGCMAsmPPC64
+	HasAESGCMHardwareSupport = hasGCMAsmAMD64 || hasGCMAsmARM64
 )
 
 func (sc *SecurityConfig) GetSecurityType() SecurityType {

@@ -267,7 +267,7 @@ func (h *Handler) DestIpAddress() net.IP {
 }
 
 // Dial implements internet.Dialer.
-func (h *Handler) Dial(ctx context.Context, dest net.Destination) (stat.Connection, error) {
+func (h *Handler) Dial(ctx context.Context, dest net.Destination) (net.Conn, error) {
 	if h.senderSettings != nil {
 
 		if h.senderSettings.ProxySettings.HasTag() {
@@ -361,10 +361,10 @@ func (h *Handler) SetOutboundGateway(ctx context.Context, ob *session.Outbound) 
 	}
 }
 
-func (h *Handler) getStatCouterConnection(conn stat.Connection) stat.Connection {
+func (h *Handler) getStatCouterConnection(conn net.Conn) net.Conn {
 	if h.uplinkCounter != nil || h.downlinkCounter != nil {
 		return &stat.CounterConnection{
-			Connection:   conn,
+			Conn:         conn,
 			ReadCounter:  h.downlinkCounter,
 			WriteCounter: h.uplinkCounter,
 		}

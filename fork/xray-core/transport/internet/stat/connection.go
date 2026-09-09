@@ -6,18 +6,14 @@ import (
 	"github.com/xtls/xray-core/features/stats"
 )
 
-type Connection interface {
-	net.Conn
-}
-
 type CounterConnection struct {
-	Connection
+	net.Conn
 	ReadCounter  stats.Counter
 	WriteCounter stats.Counter
 }
 
 func (c *CounterConnection) Read(b []byte) (int, error) {
-	nBytes, err := c.Connection.Read(b)
+	nBytes, err := c.Conn.Read(b)
 	if c.ReadCounter != nil {
 		c.ReadCounter.Add(int64(nBytes))
 	}
@@ -26,7 +22,7 @@ func (c *CounterConnection) Read(b []byte) (int, error) {
 }
 
 func (c *CounterConnection) Write(b []byte) (int, error) {
-	nBytes, err := c.Connection.Write(b)
+	nBytes, err := c.Conn.Write(b)
 	if c.WriteCounter != nil {
 		c.WriteCounter.Add(int64(nBytes))
 	}
@@ -38,7 +34,7 @@ func TryUnwrapStatsConn(conn net.Conn) net.Conn {
 		return conn
 	}
 	if conn, ok := conn.(*CounterConnection); ok {
-		return conn.Connection
+		return conn.Conn
 	}
 	return conn
 }

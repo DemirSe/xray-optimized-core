@@ -64,7 +64,7 @@ type Inbound interface {
 	Network() []net.Network
 
 	// Process processes a connection of given network. If necessary, the Inbound can dispatch the connection to an Outbound.
-	Process(context.Context, net.Network, stat.Connection, routing.Dispatcher) error
+	Process(context.Context, net.Network, net.Conn, routing.Dispatcher) error
 }
 
 // An Outbound process outbound connections.
@@ -682,7 +682,7 @@ func UnwrapRawConn(conn net.Conn) (net.Conn, stats.Counter, stats.Counter) {
 			return xorConn, nil, nil // full-random xorConn should not be penetrated
 		}
 		if statConn, ok := conn.(*stat.CounterConnection); ok {
-			conn = statConn.Connection
+			conn = statConn.Conn
 			readCounter = statConn.ReadCounter
 			writerCounter = statConn.WriteCounter
 		}
@@ -799,7 +799,7 @@ func readV(ctx context.Context, reader buf.Reader, writer buf.Writer, timer *sig
 	return nil
 }
 
-func IsRAWTransportWithoutSecurity(conn stat.Connection) bool {
+func IsRAWTransportWithoutSecurity(conn net.Conn) bool {
 	iConn := stat.TryUnwrapStatsConn(conn)
 	iConn = finalmask.UnwrapTcpMask(iConn)
 	_, ok1 := iConn.(*proxyproto.Conn)

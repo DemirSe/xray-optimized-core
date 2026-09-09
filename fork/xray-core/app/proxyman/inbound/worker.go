@@ -57,7 +57,7 @@ func getTProxyType(s *internet.MemoryStreamConfig) internet.SocketConfig_TProxyM
 	return s.SocketSettings.Tproxy
 }
 
-func (w *tcpWorker) callback(conn stat.Connection) {
+func (w *tcpWorker) callback(conn net.Conn) {
 	ctx, cancel := context.WithCancel(w.ctx)
 	sid := session.NewID()
 	ctx = c.ContextWithID(ctx, sid)
@@ -102,7 +102,7 @@ func (w *tcpWorker) callback(conn stat.Connection) {
 
 	if w.uplinkCounter != nil || w.downlinkCounter != nil {
 		conn = &stat.CounterConnection{
-			Connection:   conn,
+			Conn:         conn,
 			ReadCounter:  w.uplinkCounter,
 			WriteCounter: w.downlinkCounter,
 		}
@@ -139,7 +139,7 @@ func (w *tcpWorker) Proxy() proxy.Inbound {
 func (w *tcpWorker) Start() error {
 	ctx := context.Background()
 
-	hub, err := internet.ListenTCP(ctx, w.address, w.port, w.stream, func(conn stat.Connection) {
+	hub, err := internet.ListenTCP(ctx, w.address, w.port, w.stream, func(conn net.Conn) {
 		go w.callback(conn)
 	})
 	if err != nil {
@@ -495,14 +495,14 @@ type dsWorker struct {
 	ctx context.Context
 }
 
-func (w *dsWorker) callback(conn stat.Connection) {
+func (w *dsWorker) callback(conn net.Conn) {
 	ctx, cancel := context.WithCancel(w.ctx)
 	sid := session.NewID()
 	ctx = c.ContextWithID(ctx, sid)
 
 	if w.uplinkCounter != nil || w.downlinkCounter != nil {
 		conn = &stat.CounterConnection{
-			Connection:   conn,
+			Conn:         conn,
 			ReadCounter:  w.uplinkCounter,
 			WriteCounter: w.downlinkCounter,
 		}
@@ -544,7 +544,7 @@ func (w *dsWorker) Port() net.Port {
 
 func (w *dsWorker) Start() error {
 	ctx := context.Background()
-	hub, err := internet.ListenUnix(ctx, w.address, w.stream, func(conn stat.Connection) {
+	hub, err := internet.ListenUnix(ctx, w.address, w.stream, func(conn net.Conn) {
 		go w.callback(conn)
 	})
 	if err != nil {

@@ -11,7 +11,6 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/reality"
-	"github.com/xtls/xray-core/transport/internet/stat"
 	"github.com/xtls/xray-core/transport/internet/tls"
 )
 
@@ -124,7 +123,7 @@ func (v *Listener) keepAccepting() {
 			if v.authConfig != nil {
 				conn = v.authConfig.Server(conn)
 			}
-			v.addConn(stat.Connection(conn))
+			v.addConn(conn)
 		}()
 	}
 }

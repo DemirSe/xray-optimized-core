@@ -113,7 +113,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	input := link.Reader
 	output := link.Writer
 
-	var conn stat.Connection
+	var conn net.Conn
 	// ponytail: plain loop, same 5 attempts and waits (0,100,200,300,400ms) as retry.ExponentialBackoff(5, 100).
 	dial := func() error {
 		dialDest := destination
@@ -265,7 +265,7 @@ func NewPacketReader(conn net.Conn, UDPOverride net.Destination, DialDest net.De
 	iConn := conn
 	statConn, ok := iConn.(*stat.CounterConnection)
 	if ok {
-		iConn = statConn.Connection
+		iConn = statConn.Conn
 	}
 	var counter stats.Counter
 	if statConn != nil {
@@ -329,7 +329,7 @@ func NewPacketWriter(conn net.Conn, h *Handler, UDPOverride net.Destination, Dia
 	iConn := conn
 	statConn, ok := iConn.(*stat.CounterConnection)
 	if ok {
-		iConn = statConn.Connection
+		iConn = statConn.Conn
 	}
 	var counter stats.Counter
 	if statConn != nil {

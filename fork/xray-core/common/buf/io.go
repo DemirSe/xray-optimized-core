@@ -131,7 +131,7 @@ func NewReader(reader io.Reader) Reader {
 				var counter stats.Counter
 
 				if statConn, ok := reader.(*stat.CounterConnection); ok {
-					reader = statConn.Connection
+					reader = statConn.Conn
 					counter = statConn.ReadCounter
 				}
 				return NewReadVReader(reader, rawConn, counter)
@@ -175,7 +175,7 @@ func NewWriter(writer io.Writer) Writer {
 
 	iConn := writer
 	if statConn, ok := writer.(*stat.CounterConnection); ok {
-		iConn = statConn.Connection
+		iConn = statConn.Conn
 	}
 
 	if isPacketWriter(iConn) {
