@@ -3,6 +3,7 @@ package tls
 import (
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -11,6 +12,9 @@ import (
 )
 
 func TestECHDial(t *testing.T) {
+	if os.Getenv("XRAY_TEST_ECH") != "1" {
+		t.Skip("set XRAY_TEST_ECH=1 to run; this test dials cloudflare.com and uses DNS")
+	}
 	config := &Config{
 		ServerName:    "cloudflare.com",
 		EchConfigList: "encryptedsni.com+udp://1.1.1.1",

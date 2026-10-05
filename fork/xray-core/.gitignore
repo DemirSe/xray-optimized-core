@@ -36,6 +36,8 @@ vprotogen
 errorgen
 !common/errors/errorgen/
 *.dat
+# Tracked MultiBuffer test fixture; keep it despite the pattern above.
+!common/buf/data/test_MultiBufferReadAllToByte.dat
 
 # Build assets
 /build_assets/

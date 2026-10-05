@@ -1,0 +1,35 @@
+# Build output from scripts/build.sh (binary, configs, SHA-256 file).
+/build/
+/xray-trimmed
+/sha256.txt
+# Legacy outputs previously written next to the fork module.
+/fork/xray-core/xray-trimmed
+/fork/xray-core/sha256.txt
+
+# Node modules are not used at the repository root.
+/node_modules/
+
+# Caches.
+/.cache/
+
+# Local environment and key material. Never commit these files.
+.env
+.env.local
+*.key
+*.pem
+*.ppk
+
+# Local backups.
+/backups/
+
+# Pi subagent runtime metadata.
+/.pi/subagents/
+
+# Logs.
+*.log
+
+# Editor and OS noise.
+.DS_Store
+*.swp
+*.swo
+*~

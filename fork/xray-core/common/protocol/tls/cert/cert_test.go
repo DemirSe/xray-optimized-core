@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestGenerate(t *testing.T) {
-	err := generate(nil, true, true, "ca")
+	err := generate(nil, true, true, filepath.Join(t.TempDir(), "ca"))
 	if err != nil {
 		t.Fatal(err)
 	}

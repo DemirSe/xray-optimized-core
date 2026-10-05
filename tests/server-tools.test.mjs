@@ -2,11 +2,11 @@
 // Fake transport + local native primitives only. No live SSH, no network.
 import { equal, ok } from "node:assert";
 import { execFile, execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import test from "node:test";
+import test, { after } from "node:test";
 import {
 	ApprovalStore, BlockedError, ConnectionError, STATUS_COMMAND,
 	approvalHash, assertConfigPerms, boundOutput, buildLaunchScript, buildPollScript, buildPrecheckScript,
@@ -17,13 +17,83 @@ import {
 const T = "owner@192.0.2.1"; // TEST-NET-1 documentation address, never the real target
 const CORE_URL = pathToFileURL(join(process.cwd(), ".pi/extensions/server/core.mjs")).href;
 
+// --- temp workspace -------------------------------------------------------
+// Every created path registers for cleanup. HOME is restored after the tests.
+const ORIGINAL_HOME = process.env.HOME;
+const tempPaths = [];
+function tempDir(prefix) {
+	const dir = mkdtempSync(join(tmpdir(), prefix));
+	tempPaths.push(dir);
+	return dir;
+}
+function restoreHome() {
+	if (ORIGINAL_HOME === undefined) delete process.env.HOME;
+	else process.env.HOME = ORIGINAL_HOME;
+}
+after(() => {
+	restoreHome();
+	for (const dir of tempPaths.splice(0)) {
+		try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort cleanup */ }
+	}
+});
+const freshDir = () => tempDir("piserver-");
+
+// --- installed Pi package resolution -------------------------------------
+// The wiring tests import a copy of index.ts. A temp node_modules link lets
+// Node resolve "@earendil-works/pi-ai" and "typebox" from the installed Pi
+// package through normal package resolution, not guessed build subpaths.
+let piPackageDir = null;
+let npmCacheDir = null;
+function resolvePiPackageDir() {
+	if (piPackageDir) return piPackageDir;
+	// A supplied override is authoritative: never silently use a different install.
+	const override = process.env.PI_TEST_PACKAGE_DIR;
+	if (override !== undefined) {
+		if (!override) throw new Error("PI_TEST_PACKAGE_DIR is set but empty. Supply the Pi package directory.");
+		const packageJson = join(override, "package.json");
+		if (!existsSync(packageJson)) {
+			throw new Error(`PI_TEST_PACKAGE_DIR is set but is not an installed Pi package: ${packageJson} is missing.`);
+		}
+		return (piPackageDir = override);
+	}
+	const candidates = [];
+	try {
+		npmCacheDir ??= tempDir("pinpmcache-");
+		const npmRoot = execFileSync("npm", ["root", "-g"], {
+			encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+			env: { ...process.env, npm_config_cache: npmCacheDir },
+		}).trim();
+		if (npmRoot) candidates.push(join(npmRoot, "@earendil-works", "pi-coding-agent"));
+	} catch { /* npm is optional; the prefixes below cover common installs */ }
+	const home = ORIGINAL_HOME || homedir();
+	const nodePrefix = dirname(dirname(process.execPath));
+	for (const prefix of [nodePrefix, process.env.npm_config_prefix, "/usr/local", "/usr", join(home, ".local"), join(home, ".npm-global")]) {
+		if (prefix) candidates.push(join(prefix, "lib", "node_modules", "@earendil-works", "pi-coding-agent"));
+	}
+	for (const dir of candidates) {
+		if (existsSync(join(dir, "package.json"))) return (piPackageDir = dir);
+	}
+	throw new Error("Pi test dependency not found. Run 'npm install -g @earendil-works/pi-coding-agent' or set PI_TEST_PACKAGE_DIR to the package directory.");
+}
+function probeIndexTs(prefix) {
+	const piDir = resolvePiPackageDir();
+	const modules = join(piDir, "node_modules");
+	if (!existsSync(modules)) throw new Error(`Pi test dependency is incomplete: ${modules} is missing. Reinstall the package or set PI_TEST_PACKAGE_DIR.`);
+	const probeDir = tempDir(prefix);
+	symlinkSync(modules, join(probeDir, "node_modules"), "dir");
+	let src = readFileSync(join(process.cwd(), ".pi/extensions/server/index.ts"), "utf8");
+	src = src.replace('"./core.mjs"', JSON.stringify(CORE_URL));
+	const probe = join(probeDir, "index-probe.mts");
+	writeFileSync(probe, src, { mode: 0o600 });
+	return pathToFileURL(probe).href;
+}
+
 function mgrWithFake(stateDir, script) {
 	const calls = [];
 	const runRemote = async (s, _o) => { calls.push(s); return script(s, calls.length); };
 	const m = new JobManager({ stateDir, runRemote, target: T });
 	return { m, calls };
 }
-const freshDir = () => mkdtempSync(join(tmpdir(), "piserver-"));
 const PRECHECK_OK = { stdout: "PIJOB-OK\nPIJOB-BUS-OK\n", stderr: "", exitCode: 0 };
 
 // Launch fake: extracts the unit id from the script so the receipt check passes.
@@ -89,9 +159,10 @@ test("hostile quoting: injection contained, wrapper runs locally", () => {
 	ok(!script.includes("PWNED") || script.includes(shQuote(evil)));
 	// Prove quoting soundness locally: extract the printf payload line and run the inner relay natively.
 	const relay = `printf '%s' ${q} > "$0"`;
-	const probe = spawnSync("bash", ["-c", relay, join(tmpdir(), "qprobe.txt")]);
+	const probePath = join(tempDir("piqprobe-"), "qprobe.txt");
+	const probe = spawnSync("bash", ["-c", relay, probePath]);
 	equal(probe.status, 0);
-	equal(readFileSync(join(tmpdir(), "qprobe.txt"), "utf8"), evil);
+	equal(readFileSync(probePath, "utf8"), evil);
 	// Unit-name injection rejected.
 	for (const bad of ["../x", "a;systemctl stop foo", "x".repeat(15), "x".repeat(17), "a b", "a$b"]) {
 		let threw = false;
@@ -110,8 +181,8 @@ test("hostile quoting: injection contained, wrapper runs locally", () => {
 });
 
 test("launch + poll scripts run locally under fake systemd + temp HOME", () => {
-	const home = mkdtempSync(join(tmpdir(), "pihome-"));
-	const bin = mkdtempSync(join(tmpdir(), "pibin-"));
+	const home = tempDir("pihome-");
+	const bin = tempDir("pibin-");
 	const id = "f1f2f3f4f5f60708";
 	// Fake systemd-run: announce the unit (launch receipt), then exec past `--`.
 	writeFileSync(join(bin, "systemd-run"), `#!/bin/sh\nfor a in "$@"; do case "$a" in --unit=*) echo "Running as unit \${a#--unit=}";; esac; done\nwhile [ $# -gt 0 ]; do if [ "$1" = "--" ]; then shift; break; fi; shift; done\nexec "$@"\n`, { mode: 0o755 });
@@ -472,19 +543,10 @@ test("status command is fixed read-only + secrets masked everywhere", async () =
 
 test("tool wiring: index.ts registers server tool + approve command (fake pi)", async () => {
 	// Point HOME at an empty dir BEFORE import: index.ts binds config/state paths at module scope.
-	const fakeHome = mkdtempSync(join(tmpdir(), "pifakehome-"));
+	// The after() hook restores HOME and removes the temp dirs.
+	const fakeHome = tempDir("pifakehome-");
 	process.env.HOME = fakeHome;
-	// ESM ignores NODE_PATH, so probe a copy of index.ts with bare specifiers
-	// rewritten to the installed Pi package files (stdlib-only, no new deps).
-	const piLib = "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/node_modules";
-	const coreAbs = new URL("file://" + join(process.cwd(), ".pi/extensions/server/core.mjs")).href;
-	let src = readFileSync(join(process.cwd(), ".pi/extensions/server/index.ts"), "utf8");
-	src = src.replace('"@earendil-works/pi-ai"', JSON.stringify(piLib + "/@earendil-works/pi-ai/dist/index.js"));
-	src = src.replace('"typebox"', JSON.stringify(piLib + "/typebox/build/index.mjs"));
-	src = src.replace('"./core.mjs"', JSON.stringify(coreAbs));
-	const probe = join(tmpdir(), `server-index-probe-${Date.now()}.mts`);
-	writeFileSync(probe, src, { mode: 0o600 });
-	const mod = await import(pathToFileURL(probe).href);
+	const mod = await import(probeIndexTs("pi-index-"));
 	const tools = {}, commands = {};
 	const fakePi = {
 		registerTool: (t) => { tools[t.name] = t; },
@@ -525,17 +587,9 @@ test("tool wiring: index.ts registers server tool + approve command (fake pi)", 
 });
 
 test("autoApproveExec true skips TUI confirm + headless approval gate (no SSH)", async () => {
-	const fakeHome = mkdtempSync(join(tmpdir(), "pifakehome-auto-"));
-	process.env.HOME = fakeHome;
-	const piLib = "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/node_modules";
-	const coreAbs = new URL("file://" + join(process.cwd(), ".pi/extensions/server/core.mjs")).href;
-	let src = readFileSync(join(process.cwd(), ".pi/extensions/server/index.ts"), "utf8");
-	src = src.replace('"@earendil-works/pi-ai"', JSON.stringify(piLib + "/@earendil-works/pi-ai/dist/index.js"));
-	src = src.replace('"typebox"', JSON.stringify(piLib + "/typebox/build/index.mjs"));
-	src = src.replace('"./core.mjs"', JSON.stringify(coreAbs));
-	const probe = join(tmpdir(), `server-index-probe-auto-${Date.now()}.mts`);
-	writeFileSync(probe, src, { mode: 0o600 });
-	const mod = await import(pathToFileURL(probe).href);
+	const fakeHome = tempDir("pifakehome-auto-");
+	process.env.HOME = fakeHome; // restored by the after() hook
+	const mod = await import(probeIndexTs("pi-index-auto-"));
 	const tools = {};
 	mod.default({ registerTool: (t) => { tools[t.name] = t; }, registerCommand: () => {} });
 	const cfgDir = join(fakeHome, ".pi", "agent");
@@ -553,17 +607,9 @@ test("autoApproveExec true skips TUI confirm + headless approval gate (no SSH)",
 });
 
 test("autoApproveExec absent keeps headless approval_required (no SSH)", async () => {
-	const fakeHome = mkdtempSync(join(tmpdir(), "pifakehome-noauto-"));
-	process.env.HOME = fakeHome;
-	const piLib = "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/node_modules";
-	const coreAbs = new URL("file://" + join(process.cwd(), ".pi/extensions/server/core.mjs")).href;
-	let src = readFileSync(join(process.cwd(), ".pi/extensions/server/index.ts"), "utf8");
-	src = src.replace('"@earendil-works/pi-ai"', JSON.stringify(piLib + "/@earendil-works/pi-ai/dist/index.js"));
-	src = src.replace('"typebox"', JSON.stringify(piLib + "/typebox/build/index.mjs"));
-	src = src.replace('"./core.mjs"', JSON.stringify(coreAbs));
-	const probe = join(tmpdir(), `server-index-probe-noauto-${Date.now()}.mts`);
-	writeFileSync(probe, src, { mode: 0o600 });
-	const mod = await import(pathToFileURL(probe).href);
+	const fakeHome = tempDir("pifakehome-noauto-");
+	process.env.HOME = fakeHome; // restored by the after() hook
+	const mod = await import(probeIndexTs("pi-index-noauto-"));
 	const tools = {};
 	mod.default({ registerTool: (t) => { tools[t.name] = t; }, registerCommand: () => {} });
 	const cfgDir = join(fakeHome, ".pi", "agent");

@@ -4,7 +4,7 @@
 # Never touches: dest/SNI, UUID, Xray binaries, unrelated timers/services,
 #   50unattended-upgrades (Automatic-Reboot stays off).
 # Usage: ./maintain.sh <ssh-dest>
-# ponytail: fixed remote blocks; remote PATH fixed for sbin (see SIM.md PATH note).
+# ponytail: fixed remote blocks; remote PATH fixed for sbin.
 umask 077
 set -u -o pipefail
 
