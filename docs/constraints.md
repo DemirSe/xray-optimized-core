@@ -14,7 +14,7 @@ This file is the single current source of the locked owner constraints.
 
 - The stock Hiddify client runs on Android, Windows, and Linux.
 - TUN mode is always on. There is no bypass rule.
-- One shared UUID serves at most three devices.
+- One shared UUID serves at most ten devices.
 - The inbound listens on IPv4 only, on port 443.
 - The outbound is dual-stack: IPv4 and IPv6.
 

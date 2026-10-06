@@ -15,6 +15,7 @@
 # Local environment and key material. Never commit these files.
 .env
 .env.local
+/baseline/
 *.key
 *.pem
 *.ppk

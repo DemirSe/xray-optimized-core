@@ -24,7 +24,7 @@ test("locked constraints are current and single-source", () => {
 	const phrases = [
 		"server-only", "whatsapp.net", "no fallback", "owner approval", "stock client",
 		"Hiddify", "Android", "Windows", "Linux", "TUN", "no bypass", "shared UUID",
-		"three devices", "IPv4 only", "dual-stack", "IPv6", "manual only",
+		"ten devices", "IPv4 only", "dual-stack", "IPv6", "manual only",
 		"Automatic reboot is off", "subdomain substitution",
 	];
 	for (const phrase of phrases) {

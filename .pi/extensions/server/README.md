@@ -62,11 +62,26 @@ One compact tool `server` (actions: `server_status`, `server_exec`, `job_status`
 
 ## Subagent exposure (explicit, not automatic)
 
-Subagents do not inherit this tool automatically. To allow one, add `server` to
-that agent's `tools:` allowlist (e.g. `~/.pi/agent/agents/<name>.md`) and confirm
-the run's capability ceiling permits extension tools. Do not edit global profiles
-silently; headless subagents still hit `approval_required` without a one-shot.
-Verify with `/server-approve` flow in the main session first.
+Subagents do not inherit this tool automatically. The owner grants it to the
+builtin `worker` in `~/.pi/agent/settings.json`. The existing worker override
+keeps its model and shared instructions. Its `tools` list adds `server` to the
+builtin allowlist. Its `subagentOnlyExtensions` list loads this extension through
+an absolute local path without disabling ambient extensions. New worker sessions
+can use the fixed VPS from any working directory. If this repository moves,
+update the extension path. Project overrides can replace the user worker
+configuration; check the resolved tools and model after an override.
+
+Reviewer, scout, delegate, and researcher roles get no grant. Add `server` to
+another role only with owner approval. The run's capability ceiling must also
+permit the tool.
+
+Execution without per-command prompts uses the owner-controlled private
+`autoApproveExec: true` in `~/.pi/agent/server-ssh.json`. That skips the TUI
+confirm and the headless `approval_required` gate, so any granted agent can run
+arbitrary commands on the fixed target, with sudo and no per-command prompt.
+WARNING: keep it `false` unless the owner explicitly accepts that. With `false`,
+headless subagents hit `approval_required` until the owner issues a one-shot
+command with `/server-approve` in the main session.
 
 ## Trust boundary
 
