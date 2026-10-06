@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status: items 1–4 implemented. Item 5 is planned. Items 1–4 are not deployed.**
+**Status: items 1–5 implemented. Items 1–5 are not deployed.**
 
 This plan covers five changes in the existing Go server.
 The reference revision is `c5747fe5`.
@@ -425,6 +425,29 @@ Do not require exact millisecond timing on a loaded machine.
 - Cancellation stops pending retries promptly.
 - Error causes remain useful to the existing outbound error handling.
 - No destination, transport, or DNS behavior changes.
+
+### Status
+
+Item 5 adds the cancelable retry waits in `fork/xray-core/proxy/freedom/freedom.go`.
+The dial loop keeps five attempts. It uses the same waits before attempts 2–5: 0, 100, 200, and 300 ms.
+The loop checks the context before each attempt. A canceled or expired context stops a positive wait and the loop.
+
+The loop starts no wait after the fifth failure. An exhausted loop keeps the exact last dial error as the cause.
+A context error takes priority when the context stops the loop.
+
+Known limitation: a DNS lookup (`LookupForIP`) or a dialer that ignores the context does not stop early.
+The retry wait cannot interrupt that work.
+
+Tests and measurements: `fork/xray-core/proxy/freedom/retry_test.go`.
+Both timing pairs below use the same fake-dialer fixture on the same host.
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Five failed dials through `Process` | 1001 ms | 601 ms |
+| Cancel to `Process` return, during a retry wait | 951.7 ms | 0.03 ms |
+
+The two numbers describe local failure and cancellation latency.
+They do not show a throughput or CPU improvement.
 
 ## Final verification
 

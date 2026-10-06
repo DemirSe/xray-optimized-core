@@ -114,7 +114,8 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	output := link.Writer
 
 	var conn net.Conn
-	// ponytail: plain loop, same 5 attempts and waits (0,100,200,300,400ms) as retry.ExponentialBackoff(5, 100).
+	// ponytail: kept 5 attempts and the (0,100,200,300ms) waits of retry.ExponentialBackoff(5, 100).
+	// The extra wait after the fifth failure is removed and the waits stop on cancellation.
 	dial := func() error {
 		dialDest := destination
 		if h.config.DomainStrategy.HasStrategy() && dialDest.Address.Family().IsDomain() {
@@ -157,15 +158,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		conn = rawConn
 		return nil
 	}
-	var err error
-	for attempt := 0; attempt < 5; attempt++ {
-		err = dial()
-		if err == nil {
-			break
-		}
-		time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-	}
-	if err != nil {
+	if err := retryDial(ctx, dial, waitForRetry); err != nil {
 		return errors.New("failed to open connection to ", destination).Base(err)
 	}
 	defer conn.Close()
@@ -259,6 +252,63 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	}
 
 	return nil
+}
+
+const (
+	// retryDialAttempts is the fixed number of attempts of the Freedom dial loop.
+	retryDialAttempts = 5
+	// retryDialWaitUnit is the delay step before a retry. The waits before attempts 2..5
+	// are 0, 100, 200, and 300 ms.
+	retryDialWaitUnit = 100 * time.Millisecond
+)
+
+// retryDial runs dial with the fixed Freedom retry schedule.
+// It checks ctx before every attempt and runs no dial in a detached goroutine.
+// A canceled context stops the loop and returns the context error.
+// There is no wait after the last failed attempt.
+// Otherwise an exhausted loop returns the exact last dial error.
+func retryDial(ctx context.Context, dial func() error, wait func(context.Context, time.Duration) error) error {
+	var err error
+	for attempt := 0; attempt < retryDialAttempts; attempt++ {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		err = dial()
+		if err == nil {
+			return nil
+		}
+		if attempt == retryDialAttempts-1 {
+			break
+		}
+		if waitErr := wait(ctx, time.Duration(attempt)*retryDialWaitUnit); waitErr != nil {
+			return waitErr
+		}
+	}
+	// A cancellation during the last dial takes priority over the dial error.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	return err
+}
+
+// waitForRetry waits for the retry delay, or returns early when ctx stops first.
+// A zero delay only checks ctx and creates no timer.
+// A positive wait stops its timer when ctx wins the race.
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func NewPacketReader(conn net.Conn, UDPOverride net.Destination, DialDest net.Destination) buf.Reader {
