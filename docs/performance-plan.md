@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status: item 1 implemented. Items 2–5 are planned. Item 1 is not deployed.**
+**Status: items 1–2 implemented. Items 3–5 are planned. Items 1–2 are not deployed.**
 
 This plan covers five changes in the existing Go server.
 The reference revision is `c5747fe5`.
@@ -141,7 +141,7 @@ The race build can change pool reuse and allocation counts.
 
 ## 2. Inspect TLS records without flattening the payload
 
-### Current behavior
+### Baseline behavior
 
 File: `fork/xray-core/proxy/proxy.go`, function `IsCompleteRecord`.
 

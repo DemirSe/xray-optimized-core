@@ -403,58 +403,98 @@ func (w *VisionWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	return nil
 }
 
+// recordCursor reads the active byte views of a MultiBuffer in order, without
+// copying bytes or changing buffer ranges.
+type recordCursor struct {
+	multiBuffer buf.MultiBuffer
+	index       int
+	view        []byte
+	offset      int
+}
+
+// more reports whether at least one byte is left. It does not consume it.
+func (c *recordCursor) more() bool {
+	for c.offset >= len(c.view) {
+		if c.index == len(c.multiBuffer) {
+			return false
+		}
+		c.view = c.multiBuffer[c.index].Bytes()
+		c.index++
+		c.offset = 0
+	}
+	return true
+}
+
+// next returns the next byte and whether a byte was available.
+func (c *recordCursor) next() (byte, bool) {
+	if !c.more() {
+		return 0, false
+	}
+	data := c.view[c.offset]
+	c.offset++
+	return data, true
+}
+
+// readHeader reads one five-byte record header across buffer boundaries. It
+// reports false when fewer than five bytes are left.
+func (c *recordCursor) readHeader(header *[5]byte) bool {
+	for i := range header {
+		data, ok := c.next()
+		if !ok {
+			return false
+		}
+		header[i] = data
+	}
+	return true
+}
+
+// skip drops n bytes without copying them. It reports false when fewer than n
+// bytes are left.
+func (c *recordCursor) skip(n int) bool {
+	for n > 0 {
+		if !c.more() {
+			return false
+		}
+		available := len(c.view) - c.offset
+		if available > n {
+			c.offset += n
+			return true
+		}
+		c.offset += available
+		n -= available
+	}
+	return true
+}
+
 // IsCompleteRecord Is complete tls data record
 func IsCompleteRecord(buffer buf.MultiBuffer) bool {
-	b := make([]byte, buffer.Len())
-	if buffer.Copy(b) != int(buffer.Len()) {
-		panic("impossible bytes allocation")
+	// The previous implementation flattened the whole MultiBuffer first, so a
+	// nil element panicked before any record check. Keep that contract.
+	for _, b := range buffer {
+		if b == nil {
+			panic("proxy: IsCompleteRecord: nil buffer in MultiBuffer")
+		}
 	}
-	var headerLen int = 5
-	var recordLen int
 
-	totalLen := len(b)
-	i := 0
-	for i < totalLen {
+	cursor := recordCursor{multiBuffer: buffer}
+	for cursor.more() {
 		// record header: 0x17 0x3 0x3 + 2 bytes length
-		if headerLen > 0 {
-			data := b[i]
-			i++
-			switch headerLen {
-			case 5:
-				if data != 0x17 {
-					return false
-				}
-			case 4:
-				if data != 0x03 {
-					return false
-				}
-			case 3:
-				if data != 0x03 {
-					return false
-				}
-			case 2:
-				recordLen = int(data) << 8
-			case 1:
-				recordLen = recordLen | int(data)
-			}
-			headerLen--
-		} else if recordLen > 0 {
-			remaining := totalLen - i
-			if remaining < recordLen {
-				return false
-			} else {
-				i += recordLen
-				recordLen = 0
-				headerLen = 5
-			}
-		} else {
+		var header [5]byte
+		if !cursor.readHeader(&header) {
+			return false
+		}
+		if header[0] != 0x17 || header[1] != 0x03 || header[2] != 0x03 {
+			return false
+		}
+		recordLen := int(header[3])<<8 | int(header[4])
+		if recordLen == 0 {
+			return false
+		}
+		if !cursor.skip(recordLen) {
 			return false
 		}
 	}
-	if headerLen == 5 && recordLen == 0 {
-		return true
-	}
-	return false
+	return true
 }
 
 // ReshapeMultiBuffer prepare multi buffer for padding structure (max 21 bytes)
