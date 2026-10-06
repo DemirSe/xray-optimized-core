@@ -29,9 +29,10 @@ export GOFLAGS="-mod=readonly"
 command -v go >/dev/null 2>&1 || fail_setup "the go tool is not in PATH"
 
 # Proven with: git archive HEAD 22566562, then go vet ./... in fork/xray-core.
+# The findings keep their original text at the current source locations.
 BASELINE="common/utils/browser.go:52:2: unreachable code
-proxy/vless/inbound/inbound.go:600:29: possible misuse of unsafe.Pointer
-proxy/vless/inbound/inbound.go:601:32: possible misuse of unsafe.Pointer"
+proxy/vless/inbound/inbound.go:615:29: possible misuse of unsafe.Pointer
+proxy/vless/inbound/inbound.go:616:32: possible misuse of unsafe.Pointer"
 
 REPORT="$(mktemp "${TMPDIR:-/tmp}/vet-report.XXXXXX")" || fail_setup "cannot create a temporary report file"
 trap 'rm -f "$REPORT"' EXIT

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status: items 1–3 implemented. Items 4–5 are planned. Items 1–3 are not deployed.**
+**Status: items 1–4 implemented. Item 5 is planned. Items 1–4 are not deployed.**
 
 This plan covers five changes in the existing Go server.
 The reference revision is `c5747fe5`.
@@ -344,6 +344,23 @@ Keep connection setup and synthetic input preparation outside the timed section 
 - Successful repeated connections reuse the initial backing storage.
 - The change removes the recurring initial-array allocation without adding another per-connection array.
 - Cancellation and error tests pass under the race detector.
+
+### Status
+
+Item 4 is implemented in `fork/xray-core/proxy/vless/inbound/inbound.go`.
+The handler takes the initial 8 KiB buffer from the managed pool.
+
+Ownership rules:
+
+- Before the handoff, the handler owns the reader cache. Each failure releases it.
+- The handoff sites are `task.Run` in the fallback path, `r.NewMux`, and `dispatch.DispatchLink`. The handler marks the handoff before each call.
+- After the handoff, the consumer owns the cache. It releases or transfers the cache.
+
+Ownership caveat: a failed or canceled connection can abandon an unread cache.
+The handler does not force that cache back into the pool.
+The storage stays alive until all references drop, then the garbage collector reclaims it.
+
+Tests and benchmarks: `fork/xray-core/proxy/vless/inbound/inbound_buffer_test.go`.
 
 ## 5. Make Freedom retry waits cancelable
 

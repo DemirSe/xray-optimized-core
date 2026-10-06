@@ -280,10 +280,12 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection n
 		return errors.New("unable to set read deadline").Base(err).AtWarning()
 	}
 
-	first := buf.FromBytes(make([]byte, buf.Size))
+	first := buf.New()
 	first.Clear()
 	firstLen, errR := first.ReadFrom(connection)
 	if errR != nil {
+		// No consumer exists yet. Return the pooled array before the error.
+		first.Release()
 		return errR
 	}
 	errors.LogInfo(ctx, "firstLen = ", firstLen)
@@ -292,6 +294,18 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection n
 		Reader: buf.NewReader(connection),
 		Buffer: buf.MultiBuffer{first},
 	}
+
+	// The handler owns the cached buffers of the reader until a handoff site
+	// gives the reader to a consumer. Before the handoff, each failure returns
+	// the cache to the pool. After the handoff, the consumer owns the cache.
+	// An abandoned cache stays alive until no reference remains, and then the
+	// garbage collector reclaims it. Do not recycle it during the handoff.
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			reader.Buffer = buf.ReleaseMulti(reader.Buffer)
+		}
+	}()
 
 	var userSentID []byte // not MemoryAccount.ID
 	var request *protocol.RequestHeader
@@ -509,6 +523,7 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection n
 				return nil
 			}
 
+			handedOff = true
 			if err := task.Run(ctx, func() error {
 				if err := postRequest(); err != nil {
 					return err
@@ -642,9 +657,11 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection n
 		if err != nil {
 			return err
 		}
+		handedOff = true
 		return r.NewMux(ctx, dispatcher.WrapLink(ctx, h.policyManager, h.stats, &transport.Link{Reader: clientReader, Writer: clientWriter}))
 	}
 
+	handedOff = true
 	if err := dispatch.DispatchLink(ctx, request.Destination(), &transport.Link{
 		Reader: clientReader,
 		Writer: clientWriter},

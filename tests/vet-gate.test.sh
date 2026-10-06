@@ -89,7 +89,7 @@ assert_output dirty 'main.go:'
 # --- Fake go: the permitted baseline, tool failures, unexpected exits. ---
 
 # The baseline lines come from scripts/vet.sh itself, not duplicated here.
-BASELINE="$(sed -n '/^BASELINE="/,/^proxy\/vless\/inbound\/inbound.go:601:32: possible misuse of unsafe.Pointer"$/p' "$ROOT/scripts/vet.sh")"
+BASELINE="$(sed -n '/^BASELINE="/,/^proxy\/vless\/inbound\/inbound.go:616:32: possible misuse of unsafe.Pointer"$/p' "$ROOT/scripts/vet.sh")"
 BASELINE="${BASELINE#BASELINE=\"}"
 BASELINE="${BASELINE%\"}"
 if [ "$(printf '%s\n' "$BASELINE" | grep -c .)" -ne 3 ]; then
