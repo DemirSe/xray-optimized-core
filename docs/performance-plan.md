@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status: items 1–2 implemented. Items 3–5 are planned. Items 1–2 are not deployed.**
+**Status: items 1–3 implemented. Items 4–5 are planned. Items 1–3 are not deployed.**
 
 This plan covers five changes in the existing Go server.
 The reference revision is `c5747fe5`.
@@ -214,7 +214,7 @@ Prepare the input outside the timed section.
 
 ## 3. Defer debug string construction
 
-### Current behavior
+### Baseline behavior
 
 File: `fork/xray-core/proxy/proxy.go`, function `ReshapeMultiBuffer`.
 

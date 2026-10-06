@@ -19,6 +19,7 @@ import (
 	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
+	"github.com/xtls/xray-core/common/log"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
@@ -508,6 +509,10 @@ func ReshapeMultiBuffer(ctx context.Context, buffer buf.MultiBuffer) buf.MultiBu
 	if needReshape == 0 {
 		return buffer
 	}
+	// One level check selects the diagnostic work for this call. All reshaping
+	// below stays independent of the level.
+	debugEnabled := log.Passes(log.Severity_Debug)
+
 	mb2 := make(buf.MultiBuffer, 0, len(buffer)+needReshape)
 	toPrint := ""
 	for i, buffer1 := range buffer {
@@ -520,15 +525,22 @@ func ReshapeMultiBuffer(ctx context.Context, buffer buf.MultiBuffer) buf.MultiBu
 			buffer2.Write(buffer1.BytesFrom(index))
 			buffer1.Resize(0, index)
 			mb2 = append(mb2, buffer1, buffer2)
-			toPrint += " " + strconv.Itoa(int(buffer1.Len())) + " " + strconv.Itoa(int(buffer2.Len()))
+			if debugEnabled {
+				toPrint += " " + strconv.Itoa(int(buffer1.Len())) + " " + strconv.Itoa(int(buffer2.Len()))
+			}
 		} else {
 			mb2 = append(mb2, buffer1)
-			toPrint += " " + strconv.Itoa(int(buffer1.Len()))
+			if debugEnabled {
+				toPrint += " " + strconv.Itoa(int(buffer1.Len()))
+			}
 		}
 		buffer[i] = nil
 	}
 	buffer = buffer[:0]
-	errors.LogDebug(ctx, "ReshapeMultiBuffer ", toPrint)
+	if debugEnabled {
+		// errors.LogDebug checks the level again for a concurrent change.
+		errors.LogDebug(ctx, "ReshapeMultiBuffer ", toPrint)
+	}
 	return mb2
 }
 

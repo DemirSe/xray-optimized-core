@@ -3,6 +3,8 @@ package proxy
 // IsCompleteRecord inspects the active buffer views of a MultiBuffer directly,
 // without flattening the payload. This file keeps the previous implementation
 // as a test-only reference and compares both parsers on the same inputs.
+// The ReshapeMultiBuffer logging tests run in a child test process, because the
+// log package has no getter for the current handler or level.
 
 import (
 	"bytes"
@@ -11,11 +13,18 @@ import (
 	"io"
 	"math/rand/v2"
 	"net"
+	"os"
+	"os/exec"
 	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/xtls/xray-core/common/buf"
+	"github.com/xtls/xray-core/common/log"
 	xnet "github.com/xtls/xray-core/common/net"
 )
 
@@ -829,6 +838,406 @@ func BenchmarkIsCompleteRecord(b *testing.B) {
 			if complete != testCase.wantComplete {
 				b.Fatalf("IsCompleteRecord = %v, want %v", complete, testCase.wantComplete)
 			}
+		})
+	}
+}
+
+// reshapeLogChildEnv marks the re-executed test process that runs the tests
+// which change global logging state. The log package has no getter for the
+// current handler or level, so the parent process keeps its own state.
+const reshapeLogChildEnv = "PROXY_RESHAPE_LOG_CHILD"
+
+// defaultLogLevel is the package default of common/log. Tests and benchmarks
+// restore it after every case that changed the level.
+const defaultLogLevel = log.Severity_Warning
+
+// reshapeLogCapture records formatted messages. The lock keeps the capture
+// race-free while another goroutine changes the log level.
+type reshapeLogCapture struct {
+	mu       sync.Mutex
+	messages []string
+}
+
+func (c *reshapeLogCapture) Handle(msg log.Message) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.messages = append(c.messages, msg.String())
+}
+
+// take returns the captured messages and clears the capture.
+func (c *reshapeLogCapture) take() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	messages := c.messages
+	c.messages = nil
+	return messages
+}
+
+// reshapeDiscardHandler drops messages. The benchmark keeps the log call
+// without capturing text.
+type reshapeDiscardHandler struct{}
+
+func (reshapeDiscardHandler) Handle(log.Message) {}
+
+// reshapeLogLevels are the levels that must not change reshaping behavior.
+var reshapeLogLevels = []struct {
+	name  string
+	level log.Severity
+}{
+	{name: "debug", level: log.Severity_Debug},
+	{name: "info", level: log.Severity_Info},
+	{name: "warning", level: log.Severity_Warning},
+	{name: "error", level: log.Severity_Error},
+	{name: "disabled", level: log.Severity_Unknown},
+}
+
+// withLogLevel sets the global level for one case and restores the default
+// afterwards.
+func withLogLevel(level log.Severity, f func()) {
+	log.SetGlobalLevel(level)
+	defer log.SetGlobalLevel(defaultLogLevel)
+	f()
+}
+
+// TestReshapeMultiBufferLogging runs the log-dependent checks in a child test
+// process, so the parent keeps its handler and level.
+func TestReshapeMultiBufferLogging(t *testing.T) {
+	if os.Getenv(reshapeLogChildEnv) == "1" {
+		checkReshapeMultiBufferLogging(t)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestReshapeMultiBufferLogging$")
+	cmd.Env = append(os.Environ(), reshapeLogChildEnv+"=1")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("isolated logging test process failed: %v\n%s", err, output)
+	}
+}
+
+// checkReshapeMultiBufferLogging runs in the isolated child process. It owns
+// one handler from the start and restores the default level after each case.
+func checkReshapeMultiBufferLogging(t *testing.T) {
+	handler := &reshapeLogCapture{}
+	log.RegisterHandler(handler)
+
+	t.Run("levels-keep-output", func(t *testing.T) {
+		for _, spec := range reshapeInputSpecs() {
+			t.Run(spec.name, func(t *testing.T) {
+				checkReshapeOutputAcrossLevels(t, handler, spec)
+			})
+		}
+	})
+	t.Run("no-reshape-keeps-input", func(t *testing.T) {
+		checkReshapeNoReshape(t, handler)
+	})
+	t.Run("concurrent-level-change", func(t *testing.T) {
+		checkReshapeConcurrentLevels(t, handler)
+	})
+}
+
+// checkReshapeOutputAcrossLevels verifies that the log level changes neither
+// the output nor the debug event contract.
+func checkReshapeOutputAcrossLevels(t *testing.T, handler *reshapeLogCapture, spec reshapeInputSpec) {
+	t.Helper()
+	var reference reshapeObservation
+	var referenceLevel string
+	for _, level := range reshapeLogLevels {
+		withLogLevel(level.level, func() {
+			observed := observeReshape(spec)
+			if referenceLevel == "" {
+				reference, referenceLevel = observed, level.name
+			} else if observed.order != reference.order || !bytes.Equal(observed.payload, reference.payload) {
+				t.Errorf("%s output %q payload %x, want the %s result %q payload %x",
+					level.name, observed.order, observed.payload, referenceLevel, reference.order, reference.payload)
+			}
+			messages := handler.take()
+			if level.level != log.Severity_Debug {
+				if len(messages) != 0 {
+					t.Errorf("%s logging recorded %d debug events: %q", level.name, len(messages), messages)
+				}
+				return
+			}
+			want := spec.expectedDebugText()
+			if want == "" {
+				if len(messages) != 0 {
+					t.Errorf("debug logging recorded %d events without a reshape: %q", len(messages), messages)
+				}
+				return
+			}
+			if len(messages) != 1 {
+				t.Fatalf("debug logging recorded %d events, want 1: %q", len(messages), messages)
+			}
+			if messages[0] != want {
+				t.Errorf("debug message = %q, want %q", messages[0], want)
+			}
+		})
+	}
+}
+
+// checkReshapeNoReshape verifies that a layout without a large buffer returns
+// the input buffers unchanged and records no event at any level.
+func checkReshapeNoReshape(t *testing.T, handler *reshapeLogCapture) {
+	t.Helper()
+	for _, level := range reshapeLogLevels {
+		withLogLevel(level.level, func() {
+			mb := multiBufferOf(make([]byte, 64), make([]byte, buf.Size-22))
+			inputs := append(buf.MultiBuffer{}, mb...)
+			reshaped := ReshapeMultiBuffer(context.Background(), mb)
+			if len(reshaped) != len(inputs) {
+				t.Fatalf("reshaped MultiBuffer has %d elements, want %d", len(reshaped), len(inputs))
+			}
+			if &reshaped[0] != &mb[0] {
+				t.Error("no-reshape returned a different MultiBuffer backing array")
+			}
+			for i := range inputs {
+				if reshaped[i] != inputs[i] || reshaped[i].Len() != inputs[i].Len() {
+					t.Errorf("element %d is not the unchanged input buffer", i)
+				}
+			}
+			if messages := handler.take(); len(messages) != 0 {
+				t.Errorf("%s logging recorded %d events: %q", level.name, len(messages), messages)
+			}
+			buf.ReleaseMulti(reshaped)
+		})
+	}
+}
+
+// checkReshapeConcurrentLevels keeps reshaping while another goroutine changes
+// the level. The race detector must stay quiet and the payload must not change.
+func checkReshapeConcurrentLevels(t *testing.T, handler *reshapeLogCapture) {
+	t.Helper()
+	spec := reshapeInputSpec{name: "concurrent", buffers: []reshapeBufferSpec{
+		{length: buf.Size - 21, marker: noMarker},
+		{length: 256, marker: noMarker},
+		{length: buf.Size - 21, marker: 21},
+	}}
+	reference := observeReshape(spec)
+
+	stop := make(chan struct{})
+	flipperDone := make(chan struct{})
+	go func() {
+		defer close(flipperDone)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			log.SetGlobalLevel(log.Severity_Debug)
+			log.SetGlobalLevel(log.Severity_Warning)
+		}
+	}()
+
+	var mismatches atomic.Int32
+	var workers sync.WaitGroup
+	for worker := 0; worker < 4; worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for iteration := 0; iteration < 20; iteration++ {
+				observed := observeReshape(spec)
+				if observed.order != reference.order || !bytes.Equal(observed.payload, reference.payload) {
+					mismatches.Add(1)
+				}
+			}
+		}()
+	}
+	workers.Wait()
+	close(stop)
+	<-flipperDone
+	handler.take()
+	log.SetGlobalLevel(defaultLogLevel)
+
+	if count := mismatches.Load(); count != 0 {
+		t.Errorf("%d concurrent reshapes changed the data, want %q", count, reference.order)
+	}
+}
+
+// reshapeBufferSpec describes one input buffer. marker is the offset of the
+// last TLS application-data marker, or noMarker when the payload has none.
+type reshapeBufferSpec struct {
+	length int
+	marker int
+}
+
+// noMarker marks a payload without a TLS application-data marker.
+const noMarker = -1
+
+// reshapeInputSpec is one input layout for the logging tests.
+type reshapeInputSpec struct {
+	name    string
+	buffers []reshapeBufferSpec
+}
+
+// reshapeInputSpecs covers no reshape, one split, several splits, mixed
+// small/large buffers, and valid and fallback TLS marker positions.
+func reshapeInputSpecs() []reshapeInputSpec {
+	return []reshapeInputSpec{
+		{name: "no-reshape", buffers: []reshapeBufferSpec{
+			{length: 64, marker: noMarker}, {length: 300, marker: noMarker}, {length: buf.Size - 22, marker: noMarker},
+		}},
+		{name: "one-split/no-marker", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: noMarker},
+		}},
+		{name: "one-split/marker-at-zero", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: 0},
+		}},
+		{name: "one-split/marker-at-21", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: 21},
+		}},
+		{name: "one-split/marker-at-20", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: 20},
+		}},
+		{name: "one-split/marker-at-last-possible", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: buf.Size - 24},
+		}},
+		{name: "several-splits", buffers: []reshapeBufferSpec{
+			{length: buf.Size - 21, marker: noMarker}, {length: 64, marker: noMarker}, {length: buf.Size - 21, marker: 21},
+		}},
+		{name: "mixed-small-large", buffers: []reshapeBufferSpec{
+			{length: 32, marker: noMarker}, {length: buf.Size - 21, marker: buf.Size - 24},
+			{length: buf.Size - 1, marker: noMarker}, {length: 128, marker: noMarker},
+		}},
+	}
+}
+
+// build returns a fresh MultiBuffer. The buffers are unmanaged, so the test
+// keeps ownership of the payload bytes.
+func (spec reshapeInputSpec) build() buf.MultiBuffer {
+	mb := make(buf.MultiBuffer, 0, len(spec.buffers))
+	for i, b := range spec.buffers {
+		data := bytes.Repeat([]byte{byte(0x41 + i)}, b.length)
+		if b.marker != noMarker {
+			copy(data[b.marker:], TlsApplicationDataStart)
+		}
+		mb = append(mb, buf.FromBytes(data))
+	}
+	return mb
+}
+
+// needsReshape reports whether any buffer reaches the reshape threshold.
+func (spec reshapeInputSpec) needsReshape() bool {
+	for _, b := range spec.buffers {
+		if b.length >= buf.Size-21 {
+			return true
+		}
+	}
+	return false
+}
+
+// expectedLengths applies the documented split rule to the layout.
+func (spec reshapeInputSpec) expectedLengths() []int32 {
+	var lengths []int32
+	for _, b := range spec.buffers {
+		if b.length < buf.Size-21 {
+			lengths = append(lengths, int32(b.length))
+			continue
+		}
+		index := buf.Size / 2
+		if b.marker >= 21 && b.marker <= buf.Size-21 {
+			index = b.marker
+		}
+		lengths = append(lengths, int32(index), int32(b.length-index))
+	}
+	return lengths
+}
+
+// expectedDebugText is the previous message text for the layout: caller
+// prefix, fixed message, and one leading space before every output length.
+func (spec reshapeInputSpec) expectedDebugText() string {
+	if !spec.needsReshape() {
+		return ""
+	}
+	text := "[Debug] proxy: ReshapeMultiBuffer "
+	for _, length := range spec.expectedLengths() {
+		text += " " + strconv.Itoa(int(length))
+	}
+	return text
+}
+
+// reshapeObservation is one reshape result: the origin and length of every
+// output element, plus the payload bytes in output order.
+type reshapeObservation struct {
+	order   string
+	payload []byte
+}
+
+// observeReshape reshapes a fresh input and records the result. The input
+// elements are captured first, because reshaping clears the caller's elements.
+func observeReshape(spec reshapeInputSpec) reshapeObservation {
+	mb := spec.build()
+	inputs := append(buf.MultiBuffer{}, mb...)
+	reshaped := ReshapeMultiBuffer(context.Background(), mb)
+	observed := reshapeObservation{order: reshapeOrder(reshaped, inputs), payload: make([]byte, 0, int(reshaped.Len()))}
+	for _, b := range reshaped {
+		observed.payload = append(observed.payload, b.Bytes()...)
+	}
+	buf.ReleaseMulti(reshaped)
+	return observed
+}
+
+// reshapeOrder names the origin and length of every output element.
+func reshapeOrder(reshaped buf.MultiBuffer, inputs buf.MultiBuffer) string {
+	parts := make([]string, 0, len(reshaped))
+	for _, b := range reshaped {
+		origin := "new"
+		for i, input := range inputs {
+			if b == input {
+				origin = "input-" + strconv.Itoa(i)
+				break
+			}
+		}
+		parts = append(parts, origin+":"+strconv.Itoa(int(b.Len())))
+	}
+	return strings.Join(parts, " ")
+}
+
+// reshapeBenchmarkInput returns fresh Buffer headers for shared payloads. The
+// payload bytes stay unchanged, because reshaping copies them.
+func reshapeBenchmarkInput(payloads ...[]byte) buf.MultiBuffer {
+	mb := make(buf.MultiBuffer, 0, len(payloads))
+	for _, payload := range payloads {
+		mb = append(mb, buf.FromBytes(payload))
+	}
+	return mb
+}
+
+func BenchmarkReshapeMultiBuffer(b *testing.B) {
+	// The benchmark owns its handler and restores the default level after
+	// every case.
+	log.RegisterHandler(reshapeDiscardHandler{})
+	b.Cleanup(func() {
+		log.RegisterHandler(log.NewLogger(os.Stdout))
+	})
+
+	large := make([]byte, buf.Size-21)
+	marked := make([]byte, buf.Size-21)
+	copy(marked[21:], TlsApplicationDataStart)
+	noReshape := [][]byte{make([]byte, 2048), make([]byte, 2048), make([]byte, 2048), make([]byte, 2048)}
+	mixed := [][]byte{make([]byte, 512), large, marked, make([]byte, 512)}
+
+	cases := []struct {
+		name     string
+		payloads [][]byte
+		level    log.Severity
+	}{
+		{name: "no-reshape/debug-off", payloads: noReshape, level: log.Severity_Warning},
+		{name: "no-reshape/debug-on", payloads: noReshape, level: log.Severity_Debug},
+		{name: "mixed-splits/debug-off", payloads: mixed, level: log.Severity_Warning},
+		{name: "mixed-splits/debug-on", payloads: mixed, level: log.Severity_Debug},
+	}
+
+	for _, testCase := range cases {
+		b.Run(testCase.name, func(b *testing.B) {
+			log.SetGlobalLevel(testCase.level)
+			defer log.SetGlobalLevel(defaultLogLevel)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				reshaped := ReshapeMultiBuffer(context.Background(), reshapeBenchmarkInput(testCase.payloads...))
+				buf.ReleaseMulti(reshaped)
+			}
+			b.StopTimer()
 		})
 	}
 }
