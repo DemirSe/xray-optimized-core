@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status: planned, not implemented.**
+**Status: item 1 implemented. Items 2–5 are planned. Item 1 is not deployed.**
 
 This plan covers five changes in the existing Go server.
 The reference revision is `c5747fe5`.
@@ -68,7 +68,7 @@ Do not add a historical archive to the repository.
 
 ## 1. Replace slice values in the buffer pool
 
-### Current behavior
+### Baseline behavior
 
 File: `fork/xray-core/common/buf/buffer.go`.
 

@@ -17,7 +17,9 @@ var ErrBufferFull = errors.New("buffer is full")
 
 // ponytail: single 8K pool; larger buffers are plain allocs (old tiered
 // pools recycled them too, same correctness, negligible GC at 2 call sites).
-var pool = sync.Pool{New: func() any { return make([]byte, Size) }}
+// The pool item is a *[Size]byte. The array pointer avoids the boxed slice
+// header that pool.Put allocated when the item was []byte.
+var pool = sync.Pool{New: func() any { return new([Size]byte) }}
 
 // ownership represents the data owner of the buffer.
 type ownership uint8
@@ -40,15 +42,10 @@ type Buffer struct {
 
 // New creates a Buffer with 0 length and 8K capacity, managed.
 func New() *Buffer {
-	buf := pool.Get().([]byte)
-	if cap(buf) >= Size {
-		buf = buf[:Size]
-	} else {
-		buf = make([]byte, Size)
-	}
+	buf := pool.Get().(*[Size]byte)
 
 	return &Buffer{
-		v: buf,
+		v: buf[:],
 	}
 }
 
@@ -64,15 +61,10 @@ func FromBytes(b []byte) *Buffer {
 // StackNew creates a new Buffer object on stack, managed.
 // This method is for buffers that is released in the same function.
 func StackNew() Buffer {
-	buf := pool.Get().([]byte)
-	if cap(buf) >= Size {
-		buf = buf[:Size]
-	} else {
-		buf = make([]byte, Size)
-	}
+	buf := pool.Get().(*[Size]byte)
 
 	return Buffer{
-		v: buf,
+		v: buf[:],
 	}
 }
 
@@ -96,7 +88,7 @@ func (b *Buffer) Release() {
 
 	// ponytail: only 8K buffers recycle; other sizes drop (same correctness).
 	if b.ownership == managed && cap(p) == Size {
-		pool.Put(p)
+		pool.Put((*[Size]byte)(p[:Size]))
 	}
 	b.UDP = nil
 }
