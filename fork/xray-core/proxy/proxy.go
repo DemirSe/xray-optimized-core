@@ -234,14 +234,27 @@ func (w *VisionReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	}
 
 	if *withinPaddingBuffers || w.trafficState.NumberOfPacketToFilter > 0 {
-		mb2 := make(buf.MultiBuffer, 0, len(buffer))
-		for _, b := range buffer {
-			newbuffer := XtlsUnpadding(b, w.trafficState, w.isUplink, w.ctx)
+		// The reader hands this call the list and no longer references it,
+		// so the entries are owned here and compacted in place. Retained
+		// outputs keep their order; the write index never passes the read
+		// index, so no unread entry is overwritten before it is parsed.
+		writeIndex := 0
+		for readIndex := range buffer {
+			newbuffer := XtlsUnpadding(buffer[readIndex], w.trafficState, w.isUplink, w.ctx)
 			if newbuffer.Len() > 0 {
-				mb2 = append(mb2, newbuffer)
+				buffer[writeIndex] = newbuffer
+				writeIndex++
+			} else {
+				// XtlsUnpadding returns an owned output even when it is
+				// empty. Return its storage to the pool instead of dropping
+				// the only reference to it.
+				newbuffer.Release()
 			}
 		}
-		buffer = mb2
+		for i := writeIndex; i < len(buffer); i++ {
+			buffer[i] = nil
+		}
+		buffer = buffer[:writeIndex]
 		if *remainingContent > 0 || *remainingPadding > 0 || *currentCommand == 0 {
 			*withinPaddingBuffers = true
 		} else if *currentCommand == 1 {

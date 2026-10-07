@@ -2,6 +2,7 @@ package net
 
 import (
 	"net"
+	"net/netip"
 	"strings"
 )
 
@@ -130,6 +131,24 @@ func (d Destination) RawNetAddr() net.Addr {
 		}
 	}
 	return addr
+}
+
+// RawNetAddrPort returns the netip value form of RawNetAddr for a UDP
+// destination with a built-in IPv4 or IPv6 address. It reports false when
+// RawNetAddr would return nil or a non-UDP address, so callers can keep the
+// original generic path for every unsupported address implementation.
+func (d Destination) RawNetAddrPort() (netip.AddrPort, bool) {
+	if d.Network != Network_UDP {
+		return netip.AddrPort{}, false
+	}
+	switch addr := d.Address.(type) {
+	case ipv4Address:
+		return netip.AddrPortFrom(netip.AddrFrom4(addr), uint16(d.Port)), true
+	case ipv6Address:
+		return netip.AddrPortFrom(netip.AddrFrom16(addr), uint16(d.Port)), true
+	default:
+		return netip.AddrPort{}, false
+	}
 }
 
 // String returns the strings form of this Destination.

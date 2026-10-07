@@ -392,6 +392,9 @@ func NewPacketWriter(conn net.Conn, h *Handler, UDPOverride net.Destination, Dia
 		if DialDest.Address.Family().IsDomain() {
 			resolvedUDPAddr.Store(DialDest.Address.Domain(), net.DestinationFromAddr(conn.RemoteAddr()).Address)
 		}
+		// Select the concrete socket once. The wrapper itself stays untouched,
+		// so packet masks and custom connections keep the generic path.
+		nativeUDPConn, _ := c.PacketConn.(*net.UDPConn)
 		return &PacketWriter{
 			PacketConnWrapper: c,
 			Counter:           counter,
@@ -399,6 +402,7 @@ func NewPacketWriter(conn net.Conn, h *Handler, UDPOverride net.Destination, Dia
 			UDPOverride:       UDPOverride,
 			ResolvedUDPAddr:   resolvedUDPAddr,
 			LocalAddr:         net.DestinationFromAddr(conn.LocalAddr()).Address,
+			nativeUDPConn:     nativeUDPConn,
 		}
 
 	}
@@ -417,6 +421,10 @@ type PacketWriter struct {
 	// So, cache and keep the resolve result
 	ResolvedUDPAddr *sync.Map
 	LocalAddr       net.Address
+
+	// nativeUDPConn is the concrete socket when the wrapper holds one. Packet
+	// masks and custom wrappers leave it nil and keep the generic write path.
+	nativeUDPConn *net.UDPConn
 }
 
 func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
@@ -477,12 +485,12 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 					}
 				}
 			}
-			destAddr := b.UDP.RawNetAddr()
-			if destAddr == nil {
+			var ok bool
+			n, err, ok = w.writePacket(b.Bytes(), *b.UDP)
+			if !ok {
 				b.Release()
 				continue
 			}
-			n, err = w.PacketConnWrapper.WriteTo(b.Bytes(), destAddr)
 		} else {
 			n, err = w.PacketConnWrapper.Write(b.Bytes())
 		}
@@ -496,6 +504,24 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		}
 	}
 	return nil
+}
+
+// writePacket writes one datagram. It uses the concrete UDP socket with a
+// value address when one is available, and the generic wrapper otherwise. It
+// reports false when the destination has no usable network address.
+func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, error, bool) {
+	if w.nativeUDPConn != nil {
+		if addrPort, ok := dest.RawNetAddrPort(); ok {
+			n, err := w.nativeUDPConn.WriteToUDPAddrPort(payload, addrPort)
+			return n, err, true
+		}
+	}
+	destAddr := dest.RawNetAddr()
+	if destAddr == nil {
+		return 0, nil, false
+	}
+	n, err := w.PacketConnWrapper.WriteTo(payload, destAddr)
+	return n, err, true
 }
 
 type NoisePacketWriter struct {
