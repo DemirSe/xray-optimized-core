@@ -1,636 +1,308 @@
-# Three additional performance candidates
+# N1 rejection, N2 and N3 local results
 
 ## Status and scope
 
-Status: C1 and C3 are implemented on local sources and measured. C2 is deferred by owner decision. No candidate is deployed.
-The analysis below is the original pre-implementation baseline.
+Status: N1 is rejected by the owner before any implementation.
+N2 and N3 are implemented and measured on local sources.
+At local acceptance, neither N2 nor N3 was published or deployed.
 
-Analysis baseline: `cd03620eae9e75b146782bfdc229a2abff86f8c8`.
-This baseline includes the five earlier optimizations.
-This plan does not repeat those implementations.
+Source baseline: `1dfcee33f592d9cf055dd603a2e071a920b03ad7`.
+This commit includes the completed Vision list and native UDP write optimizations.
+The earlier five optimizations also remain in the source.
 
-The deployed release matches this baseline.
-Proposed gains in the analysis sections are hypotheses.
-The local implementation section records measured results.
-No production profile identifies these functions as the largest remaining costs.
+The earlier C2 design for zero-copy Vision unpadding remains deferred.
+Neither implemented candidate transfers a Vision payload to a different buffer owner.
 
 The [locked constraints](docs/constraints.md) remain authoritative.
-The client, wire format, REALITY handshake, and configuration schema must remain compatible.
-This plan does not authorize publication or deployment.
-
-The pending deletion of `docs/performance-plan.md` belongs to the earlier cleanup.
-This new `plan.md` does not restore that document.
-
-## Candidate selection
-
-All source paths in this document start with `fork/xray-core/` unless a path states otherwise.
-Line references describe the analysis baseline.
-
-| ID | Candidate | Main opportunity | Risk | Proposed order |
-| --- | --- | --- | --- | --- |
-| C1 | Reuse the Vision output list | Remove one temporary pointer-list allocation from eligible reads | Low to medium | First |
-| C2 | Add a complete-block unpadding fast path | Avoid a payload copy and an extra array acquisition | Medium to high | Third |
-| C3 | Use value-based addresses for native UDP writes | Avoid per-packet address objects on an eligible socket | Medium | Second |
-
-These candidates target different operations.
-C1 does not change the unpadding parser.
-C2 changes only a narrow unpadding case.
-C3 changes only the native UDP write path.
-
-The proposed order is C1, C3, then C2.
-C2 is deferred by owner decision.
-Only C1 and C3 were implemented.
-C2 needs the most care because the parser transfers buffer ownership.
-
-## Evidence boundaries
-
-Source inspection confirms the current allocations and copies.
-Source inspection does not establish their share of total CPU use.
-The plans therefore start with a baseline measurement.
-
-Eligible raw-copy or splice traffic can bypass the Vision work in C1 and C2.
-Their benefit can concentrate on connection startup and buffered traffic.
-C3 affects UDP packet writes, not bulk TCP downloads.
-
-Earlier live checks show useful stability under the tested workloads.
-Those checks do not prove ten-device capacity or every Hiddify platform.
-The inherited `common/task.TestPeriodicTaskStop` counter race remains a separate test failure.
-
-## Shared measurement procedure
-
-1. Use clean baseline and candidate source snapshots.
-2. Use the same Go version, architecture flags, and module cache.
-3. Keep `GOTOOLCHAIN=local`, `GOFLAGS=-mod=readonly`, `GOPROXY=off`, and `GOSUMDB=off`.
-4. Use synthetic data instead of private client or server configurations.
-5. Add only focused Go benchmarks to the existing packages.
-6. Reset the reader, buffers, and protocol state for every benchmark operation.
-7. Release every buffer after each operation.
-8. Measure `ns/op`, `B/op`, and `allocs/op` with `-benchmem`.
-9. Compare ten alternating baseline/candidate samples.
-10. Use one pinned CPU where the host permits that setting.
-11. Record the CPU, sample duration, `GOMAXPROCS`, `GOGC`, and `GOMEMLIMIT` settings.
-12. Include both warm-pool and cold-pool measurements.
-13. Run representative combined paths after each isolated benchmark.
-14. Record raw samples and the exact fixture hash.
-
-The existing `BenchmarkCopy` reuses a consumed reader.
-That fixture cannot support a sustained-copy claim without a reset for each operation.
-
-**CAUTION:** The owner checkout contains retained release binaries.
-Run `scripts/check.sh` and `scripts/build.sh` only in a disposable source snapshot.
-Those scripts replace `build/xray-trimmed` in their working directory.
-
-If a new test file is untracked, copy that file into every snapshot explicitly.
-Verify the copied file with `cmp` and SHA-256 before each gate.
-A tracked-only snapshot cannot prove that the new tests ran.
-
-No timing result alone proves a tunnel-throughput improvement.
-An allocation improvement can justify a candidate without a measurable WAN speed change.
-
-## C1: Reuse the Vision output list
-
-### Current cost and call path
-
-`proxy/proxy.go:204–283` implements `VisionReader.ReadMultiBuffer`.
-The padding/filter branch allocates a new `MultiBuffer` at line 237.
-The loop appends non-empty unpadding results to that new list.
-
-The underlying reader already returns a list of buffer pointers.
-The current implementation discards that list after it creates the replacement.
-The new list stores pointers, not payload bytes.
-
-`proxy/vless/inbound/inbound.go:645` installs the Vision reader for the server path.
-`common/buf/reader.go:89–95` transfers a cached list to its consumer.
-`common/buf/multi_buffer.go:57–63` defines list release behavior.
-
-The current loop also discards empty outputs without an explicit release.
-An explicit release can recycle that storage.
-The discarded buffers do not prove a permanent leak.
-
-### Proposed bounded design
-
-1. Audit every reader that supplies a list to `VisionReader`.
-2. Confirm that the consumer owns the returned slice for that read.
-3. Keep the existing early returns and state selection.
-4. Use a write index to compact the owned list in place.
-5. Call the unchanged `XtlsUnpadding` exactly one time for each original entry.
-6. Store each retained output at the next write index.
-7. Release each empty output that the loop owns and discards.
-8. Clear every unused slice slot after the loop.
-9. Return the shortened slice.
-10. Keep TLS filtering and the direct-copy transition unchanged.
-
-Do not add a list pool.
-Do not add a buffer-header pool.
-Do not change `XtlsUnpadding` in this candidate.
-
-If any reader retains the same mutable slice, stop the implementation.
-A smaller allocation count cannot justify a slice ownership race.
-
-### Ownership and compatibility requirements
-
-- Retained entries remain in their original order.
-- The loop never overwrites an entry before it reads that entry.
-- Every output has exactly one owner.
-- Empty output release never releases retained payload storage.
-- Cleared slots do not retain released headers.
-- Nil-list and nil-element behavior match the baseline.
-- The method returns the same underlying read error.
-- Data-plus-EOF behavior matches the baseline.
-- Direction-specific counters and command state match the baseline.
-- TLS input drains before the raw-reader switch.
-- The splice flags change at the same points.
-
-### Allowed implementation files
-
-- `proxy/proxy.go`: the list assembly in `VisionReader.ReadMultiBuffer`.
-- `proxy/proxy_perf_test.go`: focused reader tests and benchmarks.
-
-A new small test file in `proxy/` is also acceptable.
-No other production file is necessary unless the ownership audit proves otherwise.
-
-### Test plan
-
-1. Keep a test-only reference of the current reader behavior.
-2. Compare both directions against that reference.
-3. Test zero, one, two, eight, and sixteen input buffers.
-4. Test leading, middle, and trailing empty outputs.
-5. Test payload-only, padding-only, and partial-header inputs.
-6. Test all three Vision commands.
-7. Test consecutive blocks and multiple reads of one block.
-8. Test UUID mismatch and malformed input behavior.
-9. Test EOF and a custom read error with payload.
-10. Hold a returned list while another reader reuses pool storage.
-11. Verify that no later call changes the held payload.
-12. Verify release state and cleared unused slots.
-13. Verify the raw-reader transition and TLS buffer drain.
-
-Use an ownership-checking reader for deterministic tests.
-Do not depend on nondeterministic `sync.Pool` pointer reuse.
-
-### Benchmarks and acceptance
-
-Proposed benchmark: `BenchmarkVisionReaderListCompaction`.
-The fixture must rebuild the active parser state for each operation.
-
-Measure eligible padded/filter reads with one, four, and sixteen buffers.
-Include unchanged direct-read and no-filter controls.
-
-Accept C1 only if all of the following hold:
-
-- Differential tests and focused race tests pass.
-- Eligible reads remove the replacement-list allocation.
-- Representative total allocations decrease by at least one per eligible read.
-- Unchanged controls show no repeatable timing regression above 3 percent.
-- The implementation adds no asynchronous sharing of a mutable slice.
-
-The allocation target concerns eligible reads only.
-It does not imply zero allocations for a complete Vision read.
-
-### Rollback
-
-Keep C1 in a separate commit.
-If ownership or compatibility fails, restore the former list assembly.
-Retain the differential fixtures and measurement evidence.
-
-## C2: Add a complete-block unpadding fast path (deferred)
-
-Owner decision: C2 is deferred. No C2 code, helper, or test was added.
-
-### Current cost and call path
-
-`proxy/proxy.go:587–667` implements `XtlsUnpadding`.
-After the initial UUID check, line 611 gets a new managed buffer.
-The content branch copies bytes into that buffer.
-The function then releases the input buffer.
-
-A complete block can contain one contiguous content range.
-For that case, the parser can potentially return a view of the existing array.
-The optimization must preserve the input header's consumed state.
-
-C2 is not the earlier TLS record cursor optimization.
-The record cursor inspects TLS records without flattening them.
-C2 concerns Vision payload ownership after padding removal.
-
-### Proposed bounded design
-
-1. Check eligibility before the general parser consumes bytes.
-2. Require a complete, single block with non-empty contiguous content.
-   Require an initial UUID block or a complete command boundary.
-   Require a known continue, end, or direct command.
-3. Require normal managed storage with the standard buffer capacity.
-4. Exclude unmanaged storage and ambiguous aliases.
-5. Exclude incomplete headers, incomplete payloads, and incomplete padding.
-6. Exclude multiple blocks in one input buffer.
-7. Exclude unexpected trailing bytes after an end/direct command.
-8. Parse lengths into stack variables without changing the input.
-9. Check every range before a state or ownership change.
-10. Transfer the array to a distinct output header.
-11. Keep the full array backing store for its eventual pool release.
-12. Set the output active range to the content bytes.
-13. Invalidate the consumed input header without returning the array to the pool.
-14. Commit the same command and remaining-length state as the reference parser.
-15. Use the unchanged general parser for every excluded case.
-
-A small helper in `common/buf` can perform the ownership transfer.
-The helper must not use `unsafe` or change the `Buffer` field layout.
-The helper must leave the input unchanged when eligibility fails.
-
-Do not return the original live input header as the output.
-That shortcut changes the observable release state of the consumed input.
-Do not pool buffer headers.
-Do not change cryptographic randomness or padding generation.
-
-### State and buffer requirements
-
-The reference parser defines state transitions for continue, end, and direct commands.
-The fast path must produce the same transitions.
-The fast path must also preserve the UUID check.
-
-`Buffer.Release` returns the backing array to the shared pool.
-A transferred array must not enter that pool while the output still owns the array.
-Repeated release of the consumed input must remain safe.
-
-The output view can have a nonzero starting offset.
-That offset changes tail availability compared with a freshly copied buffer.
-Audit downstream uses of `Available`, `IsFull`, `Resize`, and append operations.
-If the view changes downstream behavior, exclude that case or reject C2.
-
-The output must preserve these properties:
-
-- Identical active bytes and length.
-- Identical standard capacity.
-- Identical UDP metadata behavior.
-- Identical command and filter state.
-- Identical debug messages when debug logging is enabled.
-- Independent input and output header lifetimes.
-- Safe output release after delayed consumption.
-
-C2 can still allocate an output header.
-The plan does not claim an allocation-free parser.
-
-### Allowed implementation files
-
-- `proxy/proxy.go`: the private eligibility check and fast path.
-- `common/buf/buffer.go`: a narrow helper for the required ownership transfer.
-- Corresponding buffer and proxy test files.
-
-No generic reader, dispatcher, timer, or TLS handshake redesign belongs to C2.
-
-### Test plan
-
-1. Keep the original general parser as a test reference.
-2. Compare output bytes and every relevant traffic-state field.
-3. Cover both directions and every Vision command.
-4. Split the UUID, command header, content, and padding at every boundary.
-5. Cover zero content, zero padding, and maximum encoded lengths.
-6. Cover multiple blocks and unexpected trailing bytes.
-7. Cover UUID mismatch, short input, and invalid length combinations.
-8. Cover advanced input ranges and released or unmanaged buffers.
-9. Release the consumed input repeatedly while the output remains live.
-10. Hold the output while other connections acquire and release managed buffers.
-11. Verify that the held output never changes.
-12. Release the output and verify one final array return.
-13. Compare downstream readers and writers with the reference output.
-14. Fuzz the parser with a bounded differential fixture.
-15. Run combined C1/C2 reader tests under the race detector.
-
-Do not normalize malformed behavior silently.
-The legacy parser can reject, pass through, or panic on different malformed inputs.
-The candidate must preserve the relevant existing contracts.
-
-### Benchmarks and acceptance
-
-Proposed benchmark: `BenchmarkXtlsUnpaddingCompleteBlock`.
-Use content lengths of 64, 512, 1400, 4096, and near-capacity bytes.
-Include fragmented and multi-block fallback controls.
-
-Measure the full reader path as well as the isolated function.
-Account for the output header and eventual release.
-Do not measure an already-consumed input repeatedly.
-
-Accept C2 only if all of the following hold:
-
-- Differential tests, fuzz tests, and focused race tests pass.
-- Eligible content avoids the extra payload copy.
-- Eligible content avoids the extra array acquisition.
-- Output ownership and input release semantics remain correct.
-- Representative eligible cases improve median CPU time by at least 5 percent.
-- Fallback and combined paths show no repeatable regression above 3 percent.
-
-Reject C2 if the required ownership helper becomes a broad API redesign.
-Reject C2 if its narrow eligibility makes the measured benefit negligible.
-
-### Rollback
-
-Keep C2 and its private helper in a separate commit.
-Restore the general parser as the only parser path on rollback.
-C1 must continue to work with that original parser.
-
-## C3: Use value-based addresses for native UDP writes
-
-### Current cost and call path
-
-`proxy/freedom/freedom.go:422–500` implements `PacketWriter.WriteMultiBuffer`.
-After address overrides and domain resolution, line 480 calls `RawNetAddr`.
-The writer then calls the generic `PacketConn.WriteTo` method.
-
-`common/net/destination.go:104–133` constructs a `*net.UDPAddr` for an IP destination.
-`common/net/address.go:137–139` and `157–159` expose IP bytes from value-based addresses.
-These conversions can create small objects on the packet path.
-
-`transport/internet/system_dialer.go:72–83` wraps the packet socket.
-`PacketConnWrapper` keeps a generic `PacketConn` at lines 151–154.
-For a native UDP socket, Go offers `WriteToUDPAddrPort` with a value-based address.
-
-### Proposed bounded design
-
-1. Select the native socket capability in `NewPacketWriter`.
-2. Require the underlying packet connection to be a concrete `*net.UDPConn`.
-3. Keep the existing generic writer for wrapped and custom connections.
-4. Apply the current address and port overrides first.
-5. Keep the current domain resolution and cache behavior.
-6. Require a resolved UDP destination with a supported IP address.
-7. Convert the address to `netip.AddrPort` without string formatting.
-8. Use a small conversion helper in `common/net` for the supported native addresses.
-9. Use the existing fixed IPv4/IPv6 values inside that helper.
-10. Avoid an intermediate `net.IP` slice on the eligible conversion path.
-11. Call `WriteToUDPAddrPort` on the eligible socket.
-12. Preserve byte counters and the existing release/error order.
-13. Use the original `RawNetAddr` path for every unsupported case.
-
-Do not change the `Address` interface.
-Do not add a new DNS cache or change address selection.
-Do not change socket creation, source binding, deadlines, or socket options.
-Do not bypass packet masks or accounting wrappers.
-
-The first implementation covers writes only.
-A receive-path conversion needs a separate analysis.
-
-### Compatibility requirements
-
-- Domain resolution still precedes the native write.
-- Destination overrides still take priority.
-- Nil and unresolved destinations retain their current behavior.
-- Non-UDP destinations use the original path.
-- Unknown address implementations use the original path.
-- IPv4-mapped IPv6 behavior matches the current address representation.
-- Zone handling retains the current policy.
-- Connected-socket errors retain the same error class and release behavior.
-- A write failure releases the current and remaining buffers exactly one time.
-- Statistics count the same successfully written bytes.
-- The nil-UDP-metadata write path remains unchanged.
-
-### Allowed implementation files
-
-- `proxy/freedom/freedom.go`: native socket selection and eligible writes.
-- `common/net/destination.go` or `address.go`: a narrow value-address helper.
-- Relevant freedom and address test files.
-
-No production change to `system_dialer.go` is necessary for the initial design.
-The wrapper and socket construction remain unchanged.
-
-### Test plan
-
-1. Compare native and generic writes with loopback UDP listeners.
-2. Cover IPv4 and IPv6.
-3. Cover mapped addresses and unsupported custom address values.
-4. Cover destination address and port overrides separately.
-5. Cover cached and newly resolved domain destinations.
-6. Verify that unresolved and forced-resolution failures retain their behavior.
-7. Cover nil metadata and invalid network values.
-8. Use fake packet connections to verify generic fallback selection.
-9. Simulate write errors and short-write behavior in fallback fixtures.
-10. Verify counters and the release state of remaining buffers.
-11. Run concurrent writers on separate connections under the race detector.
-12. Verify byte-exact datagrams through VLESS/XUDP after an approved deployment.
-
-Use datagram lengths of 8, 128, 512, 1200, 1400, 2048, 4096, and 8192 bytes.
-Larger datagrams need a separate baseline-supported limit check.
-
-### Benchmarks and acceptance
-
-Proposed benchmark: `BenchmarkFreedomPacketWriterAddress`.
-Separate address conversion from loopback socket cost.
-Keep the final socket write in the representative benchmark.
-
-Measure explicit IPv4/IPv6 packet metadata and unchanged nil-metadata controls.
-Measure native and wrapped connections separately.
-Use the same destination distribution for both implementations.
-
-Accept C3 only if all of the following hold:
-
-- Functional, differential, and focused race tests pass.
-- Native writes remove at least one address allocation per eligible packet.
-- Representative packet cost does not regress.
-- Wrapped and nil-metadata controls show no repeatable regression above 3 percent.
-- DNS, override, error, counter, and release behavior remain equivalent.
-
-Reject C3 if the conversion still allocates the same intermediate objects.
-The extra branch must earn its complexity through measured savings.
-
-### Rollback
-
-Keep C3 in a separate commit.
-Restore generic address conversion and writes on rollback.
-C1 and C2 must remain independent of C3.
-
-## Verification commands for a later implementation
-
-The proposed new benchmarks and fuzz target do not exist yet at the analysis
-baseline. `BenchmarkVisionReaderListCompaction` and
-`BenchmarkFreedomPacketWriterAddress` exist now.
-The C2 fuzz target does not.
-Do not interpret these commands as checks that ran during this analysis.
-
-Run these checks inside the prepared source snapshot:
-
-```bash
-cd fork/xray-core
-
-go test -count=20 -timeout=120s \
-  ./common/buf ./common/net ./proxy ./proxy/vless/... \
-  ./proxy/freedom ./transport/internet ./app/dispatcher ./app/proxyman/outbound
-
-CGO_ENABLED=1 CC=/usr/bin/gcc go test -race -count=10 -timeout=120s \
-  ./common/buf ./common/net ./proxy ./proxy/vless/... \
-  ./proxy/freedom ./transport/internet ./app/dispatcher ./app/proxyman/outbound
-
-go test ./proxy -run='^$' \
-  -fuzz='^FuzzXtlsUnpaddingDifferential$' \
-  -fuzztime=30s -fuzzminimizetime=100x -parallel=2
-
-go test ./proxy -run='^$' -benchmem -count=10 \
-  -bench='BenchmarkVisionReaderListCompaction|BenchmarkXtlsUnpaddingCompleteBlock'
-
-go test ./proxy/freedom -run='^$' -benchmem -count=10 \
-  -bench='BenchmarkFreedomPacketWriterAddress'
-```
-
-The count limits apply to the changed-path packages.
-Do not multiply unrelated sleeping tests into this focused gate.
-Run the normal offline suite from the snapshot root without repeated test counts.
-
-```bash
-bash scripts/check.sh
-```
-
-The full race suite still requires an honest baseline comparison.
-Do not suppress the inherited periodic-test race or label the full suite green.
-
-## Release acceptance after separate approval
-
-1. Complete the measurement gate for one candidate.
-2. Complete independent code review and the relevant tests.
-3. Inspect the actual diff and every new test file.
-4. Publish only after owner approval.
-5. Build a clean, identifiable candidate release.
-6. Preserve the current binary as the verified rollback release.
-7. Validate the existing private configuration.
-   Do not print credentials.
-8. Deploy only after owner approval.
-9. Test fresh authenticated TCP and UDP connections.
-10. Verify payload integrity and both outbound address families.
-11. Exercise delayed readers, abrupt closes, and connection churn.
-12. Compare CPU, memory, latency, and throughput under the same workload.
-13. When the devices are available, verify the supported client platforms.
-14. Monitor a finite soak before acceptance.
-15. If a regression appears, restore the previous verified binary.
-
-A passing local benchmark is not production acceptance.
-A successful laptop test is not a complete client matrix.
-No candidate changes the existing private-IP bypass rules on the laptop.
-Those rules require a separate client-policy decision.
-
-## Local implementation status of C1 and C3
-
-This section records the local result of this task.
-It separates local checks from production compatibility.
-All commands below ran offline on the pinned Go 1.26.0 toolchain.
-No private client configuration supplied test input.
-Retained releases and private baselines remain unchanged.
-
-### C1: implemented and measured
-
-Changed files:
-
-- `proxy/proxy.go`: `VisionReader.ReadMultiBuffer` compacts the handed-off list
-  in place with a write index, releases owned discarded empty outputs, and
-  clears every unused slot. `XtlsUnpadding`, parsing, and TLS classification
-  are unchanged.
-- `proxy/vision_reader_perf_test.go`: differential fixtures, ownership checks,
-  and the required benchmark. The former reader body is kept as a reference.
-
-Supplying-reader audit:
-
-- The Vision reader wraps the inbound `*buf.BufferedReader`.
-  `DecodeBodyAddons` returns `buf.NewReader(reader)`, which returns that
-  `BufferedReader` because it already implements `buf.Reader`.
-- `BufferedReader.ReadMultiBuffer` nils its cached list before the handoff.
-- `ReadVReader` allocates a fresh slice per read and keeps no slice reference
-  (the readv arrays copy buffer pointers).
-- `SingleReader`, `PacketReader`, `cnc.Connection`, and `pipe` transfer the
-  list and drop their own reference before returning.
-- No supplier re-exposes the same mutable slice after the handoff, so in-place
-  compaction adds no asynchronous sharing.
-
-The differential matrix uses 28 fixtures in both directions, for 56 subtests.
-The fixtures cover empty, partial, unmatched, nil, and multiple blocks.
-They also cover all three commands and payload with EOF or a custom error.
-Additional tests check `BufferedReader` handoff, held outputs, and cleared slots.
-They also check release of empty inputs and the direct transition.
-
-Benchmark `BenchmarkVisionReaderListCompaction` uses identical rebuilt fixtures
-for both subcases and ran with `-benchmem -benchtime=100ms -count=10`:
-
-- eligible 1-buffer reads: 15 to 14 allocs/op, 777 to 769 B/op,
-  median 506.6 to 487.9 ns/op.
-- eligible 4-buffer reads: 30 to 27 allocs/op, 17843 to 1410 B/op,
-  median 3437.5 to 1061.0 ns/op.
-- eligible 16-buffer reads: 90 to 81 allocs/op, 69702 to 3981 B/op,
-  median 12794.5 to 3498.5 ns/op.
-- direct-read and no-padding/no-filter controls keep identical allocation
-  counts, B/op, and medians within noise.
-
-The extra savings in the 4-buffer and 16-buffer cases are the reclaimed empty
-outputs that the former loop dropped.
-The 1-buffer case isolates the removed list allocation: exactly one allocation.
-Fixture digests are logged by `TestVisionReaderListCompactionFixtureDigest`.
-
-Local checks: `go test -count=20` and `go test -race -count=10` pass for the
-five focused packages. Local checks are not production compatibility.
-No live, ten-device, or client-platform validation ran.
-
-The host ran `scripts/check.sh` in a disposable source clone.
-The clone included the tracked diff and every new test file.
-Copy checks used `cmp` and SHA-256.
-Node tests, maintenance smoke, and the strict vet gate passed.
-The full normal Go suite, trim build, and configuration checks also passed.
-
-### C3: implemented and measured
-
-Changed files:
-
-- `common/net/destination.go`: `Destination.RawNetAddrPort` converts built-in
-  IPv4/IPv6 value addresses to `netip.AddrPort` without an intermediate
-  `net.IP` or string formatting. Unsupported implementations report false.
-- `proxy/freedom/freedom.go`: `NewPacketWriter` selects the concrete
-  `*net.UDPConn` once after the stats unwrap. `PacketWriter.writePacket` uses
-  `WriteToUDPAddrPort` for supported value destinations and keeps
-  `RawNetAddr`/`WriteTo` for everything else. Null metadata, overrides,
-  resolution, counters, and release order are unchanged.
-- `common/net/destination_value_test.go` and
-  `proxy/freedom/packet_writer_perf_test.go`: conversion, socket, fallback,
-  override, cache, error, counter, and benchmark checks.
-
-Capability audit:
-
-- The concrete `*internet.PacketConnWrapper` remains required.
-- `c.PacketConn.(*net.UDPConn)` runs once and never unwraps a packet mask,
-  a custom connection, or an accounting wrapper.
-- UDP mask dialers replace `PacketConn` with a mask wrapper, so those keep the
-  generic path.
-
-Benchmark `BenchmarkFreedomPacketWriterAddress` keeps the pre-change `PacketWriter.WriteMultiBuffer` body from `cd03620e` as a test-only reference.
-Both write loops use one parameterized runner with identical reset and release fixtures.
-Both sides use the same concrete socket types.
-Eligible writes and nil-metadata controls use real native sockets.
-Custom fallback controls use the same `pwMaskPacketConn` wrapper over a real socket. The runner adds symmetric escape
-allocations to both implementations.
-Those fixture costs cancel in each baseline/candidate allocation difference.
-
-The benchmark ran with `-benchmem -benchtime=100ms -count=10` on local
-loopback sockets:
-
-- address-only: 35.5 to 2.4 ns/op, 52 to 0 B/op, 2 to 0 allocs/op.
-- loopback IPv4 write: 7 to 5 allocs/op, 184 to 132 B/op,
-  median 3663.5 to 3600.0 ns/op.
-- loopback IPv6 write: 7 to 5 allocs/op, 208 to 144 B/op,
-  median 3873.0 to 3793.5 ns/op.
-- nil-metadata control: identical 4 allocs/op and 108 B/op,
-  median 3532.0 to 3575.5 ns/op with overlapping ranges.
-- custom-connection fallback control: identical 7 allocs/op and 184 B/op,
-  median 3746.0 to 3706.0 ns/op with overlapping ranges.
-
-Each eligible native packet removes two allocations and 52 B on IPv4, or 64 B
-on IPv6.
-The nil-metadata median increases 1.2 percent in the primary run.
-The second run also increases: 3596.0 to 3681.5 ns/op, or 2.4 percent.
-Both increases remain below the 3 percent control threshold.
-The sample ranges overlap, and allocation counts remain identical.
-These samples do not establish a significant timing change.
-No target tunnel-throughput claim follows from these numbers.
-
-Local checks: `go test -count=20` and `go test -race -count=10` pass for the
-five focused packages, including byte-exact loopback datagrams of 8 to 8192
-bytes in both families.
-The offline snapshot check also passes for this state.
-Local checks are not production compatibility.
-No VLESS/XUDP deployment check ran, because deployment needs separate owner
-approval.
-
-## Completion criteria
-
-A candidate is complete only after its implementation, evidence, and review satisfy its acceptance gate.
-A candidate can also finish as rejected when measurements do not justify the change.
-The plan does not require speculative optimizations to enter the release.
+No candidate changes the client, wire format, handshake, or configuration schema.
+Publication and deployment require separate approval.
+
+The existing deletion of `docs/performance-plan.md` belongs to the earlier cleanup.
+This task does not change or publish that deletion.
+Protected baselines, retained releases, and external evidence remain untouched.
+
+All numbers below are local measurements on one machine.
+They are not WAN speed and not live acceptance.
+
+## Candidate status
+
+All source paths below start with `fork/xray-core/` unless a path states otherwise.
+
+| ID | Candidate | Status | Local measured result |
+| --- | --- | --- | --- |
+| N1 | Avoid clearing the whole UDP receive buffer | Rejected by owner before implementation | No source change. The clear and both `Resize` calls remain |
+| N2 | Use value-based UDP source addresses | Implemented and measured | 2 allocations removed per native receive. Loopback medians decrease by 0.3–3.3 percent |
+| N3 | Encode the common VLESS response directly | Implemented and measured | Header-only median 18.72 → 3.12 ns controlled and 116.70 → 83.12 ns through the buffered writer |
+
+N2 and N3 are independent.
+N1 has no implementation.
+There is no combined N1/N2 path, and no combined-path procedure remains.
+
+## N1: rejected by owner
+
+The owner rejected N1 before implementation.
+N1 proposed avoiding the preliminary 8192-byte clear of the receive buffer.
+
+The proposal carried a dirty-tail risk.
+The inactive buffer tail can retain bytes from an earlier pool use.
+Safe use requires every output consumer to respect the active range.
+The proposal also needed a new packet-read helper in `common/buf`.
+The owner did not state a rejection reason.
+No N1 implementation or benchmark followed the rejection.
+
+No N1 code exists in the source.
+`PacketReader.ReadMultiBuffer` keeps `b.Resize(0, buf.Size)` before the receive and `b.Resize(0, n)` after the receive.
+The clearing behavior of `common/buf` is unchanged.
+The former N1 design, its helper proposals, and the four-variant combined matrix are removed from this plan.
+
+## N2: value-based UDP source addresses
+
+### Implemented change
+
+- `proxy/freedom/freedom.go`: `NewPacketReader` selects a direct concrete `*net.UDPConn` after the existing statistics unwrap.
+  The selection is a direct type assertion on `c.PacketConn`.
+  Packet masks, custom wrappers, and nested wrappers are never unwrapped, so they keep the generic path.
+- `proxy/freedom/freedom.go`: `PacketReader` gains one unexported `nativeUDPConn` field.
+  `ReadMultiBuffer` uses `ReadFromUDPAddrPort` only when that field is set.
+  The generic `ReadFrom` path, its `*net.UDPAddr` assertion, and its override guard are unchanged.
+- `common/net/address.go`: `IPAddressFromAddr(netip.Addr) Address` converts the value directly.
+  It builds the existing built-in IPv4 and IPv6 values without an intermediate `net.IP` or string.
+  A mapped IPv6 value is normalized with `Unmap`, like `IPAddress`.
+  An IPv6 zone is ignored like the baseline `net.IP` conversion.
+  An invalid address returns nil.
+
+Preserved behavior, with a differential test for each item:
+
+- Both `Resize` calls and the full preliminary clear stay in place.
+- Successful reads return one owned pool buffer. Tests check payload length, capacity, and release behavior.
+- Source address and port, mapped IPv6 normalization, and native IPv6 stay equal to the HEAD conversion.
+- `InitChangedAddr` restores `InitUnchangedAddr`. An unrelated source keeps its real value.
+- Every override combination sets `IsOverridden` and suppresses source metadata on both paths.
+- Read counters add the same successful byte count. Errors add nothing.
+- Empty datagrams keep one empty buffer and full source metadata.
+- Deadlines and closed sockets keep the same timeout and `net.ErrClosed` classes.
+- Datagram integrity holds through 8192 bytes. Oversize datagrams truncate identically to the baseline.
+- Custom and masked wrappers keep the generic path and its allocation counts.
+- The existing native UDP write optimization is untouched.
+
+### Files
+
+- Production: `proxy/freedom/freedom.go`, `common/net/address.go`.
+- Tests: `proxy/freedom/packet_reader_perf_test.go`, `common/net/address_value_receive_test.go`.
+- `common/buf` is unchanged because N1 is rejected.
+
+### Tests
+
+`packet_reader_perf_test.go` keeps the exact HEAD `PacketReader.ReadMultiBuffer` body as `prLegacyReadMultiBuffer` and the exact HEAD `NewPacketReader` body as `prLegacyNewPacketReader`.
+A test-only `prLegacyPacketReader` preserves the exact HEAD field layout without the native socket field.
+The four reference bodies match HEAD after documented substitutions for test types and import aliases.
+The fourth reference is the N3 response encoder described below.
+
+The file covers:
+
+1. Native socket selection, mask rejection, stats-wrapper unwrap, and the non-wrapper fallback.
+2. Native versus legacy receives on equivalent real UDP sockets for `udp4` and `udp6` through 8192 bytes.
+3. A dual-stack reader that receives a mapped IPv4 source, checked against the HEAD conversion.
+4. Address-only, port-only, and combined overrides.
+5. Original-domain restoration and an unrelated source.
+6. Explicit counter and ownership assertions, including one held output across a later receive.
+7. Empty datagrams, read deadlines, closed sockets, and repeated releases.
+8. Oversized datagram truncation matched against the baseline.
+9. Concurrent native readers on separate sockets under the race detector.
+10. The constructor baseline: reflected size, allocation count, and one real read through the HEAD reader type.
+
+`address_value_receive_test.go` compares the value conversion with `IPAddress`.
+Cases include IPv4, IPv6, mapped, zoned, loopback, and unspecified values.
+The tests cover invalid input.
+The tests also check allocation counts against the slice conversion.
+
+### Measurements
+
+Method: prepared snapshot gate with 10 paired rounds, `-benchtime=100ms`, `GOMAXPROCS=1`, pinned CPU 2, Go 1.26.0, `GOAMD64=v3`, `CGO_ENABLED=0`.
+Each subcase builds its own sender and reader sockets.
+The legacy and candidate subcases use the same concrete socket types and the same payload.
+Every returned buffer is released.
+
+| Subcase (median of 10 rounds) | HEAD ns/op | Current ns/op | HEAD B/op | Current B/op | HEAD allocs | Current allocs |
+| --- | --- | --- | --- | --- | --- | --- |
+| loopback udp4 64 B | 2630.50 | 2544.50 | 136 | 84 | 6 | 4 |
+| loopback udp4 1400 B | 2712.50 | 2656.50 | 136 | 84 | 6 | 4 |
+| loopback udp4 8192 B | 3322.00 | 3273.00 | 136 | 84 | 6 | 4 |
+| loopback udp6 64 B | 2803.50 | 2735.50 | 160 | 96 | 6 | 4 |
+| loopback udp6 1400 B | 2876.00 | 2820.00 | 160 | 96 | 6 | 4 |
+| loopback udp6 8192 B | 3510.00 | 3499.50 | 160 | 96 | 6 | 4 |
+| control: masked wrapper fallback | 2729.00 | 2715.00 | 136 | 136 | 6 | 6 |
+| control: override | 2636.00 | 2556.50 | 108 | 56 | 4 | 2 |
+| address only: IPv4 conversion | 11.97 | 13.37 | 4 | 4 | 1 | 1 |
+| address only: mapped conversion | 15.33 | 13.80 | 4 | 4 | 1 | 1 |
+| constructor: one reader | 56.89 | 64.87 | 68 | 84 | 2 | 2 |
+
+Reading of the results:
+
+- Native receives remove two allocations per packet: the temporary `*net.UDPAddr` and its IP slice.
+  That removes 52 B/op on `udp4` and 64 B/op on `udp6`.
+- Native loopback medians decrease by 0.3 to 3.3 percent across sizes and families in this run.
+  The absolute saving is small because the loopback syscall pair dominates.
+  Small timing differences remain sensitive to measurement noise.
+- The wrapped fallback control keeps identical bytes and allocations, and its time is within 0.5 percent.
+- The override control removes the same two temporary objects while keeping metadata suppression.
+- The isolated IPv4 conversion is slower by about 1.4 ns.
+  It stays at 4 B/op and 1 allocation, and the whole receive is still faster.
+  The isolated mapped conversion is faster by about 1.5 ns.
+- Constructor overhead is separate and one-time per response reader:
+  the reflected reader size grows from 64 to 72 bytes, one pointer field.
+  The constructor allocation moves from the 64-byte class to the 80-byte class.
+  Both constructors allocate the same two objects: the reader and the same address box.
+  The median constructor time grows by about 8 ns.
+
+N2 acceptance:
+
+- At least one allocation removed per native packet: yes, two.
+- No repeatable slowdown above 3 percent on the receive paths and controls: yes.
+  The only value above 3 percent is the isolated IPv4 conversion benchmark, not a receive path.
+- Wrapped controls keep their allocation counts and behavior: yes.
+- The added constructor field and the one-time constructor cost are reported above, not hidden.
+
+## N3: direct common VLESS response header
+
+### Implemented change
+
+- `proxy/vless/encoding/encoding.go`: `EncodeResponseHeader` gains a fast path for `request.Version == Version`, a non-nil `responseAddons`, and `responseAddons.Flow != vless.XRV`.
+  That is the same no-addon branch that the baseline encoder selects.
+- The fast path writes a shared, read-only two-byte sequence: the version byte and a zero addon length.
+  It performs one `writer.Write` call and keeps the exact `"failed to write response header"` wrapper and its inner error.
+- Every other case keeps the original pooled encoder unchanged.
+
+Writer-contract audit:
+
+- The only production caller is `proxy/vless/inbound/inbound.go:649`.
+  It passes a `*buf.BufferedWriter`, which copies the supplied bytes into its own managed buffer.
+  It does not modify or retain the supplied slice.
+- The shared sequence must stay read-only. The implementation comment records that rule.
+
+Preserved behavior, with a differential test for each item:
+
+- Version zero with empty or unknown addons stays exactly two zero bytes.
+- Nonzero versions and Vision addons keep the pooled encoder.
+- Nil request and nil addons keep their current panic behavior and panic text.
+- Writer failures keep the same error cause and wrapper text.
+- A short write with no error keeps the baseline nil result.
+- One writer call, unchanged header and body order, and unchanged flush boundaries.
+- Concurrent encodes do not modify shared bytes. Output stays two zero bytes after heavy pool use.
+
+### Files
+
+- Production: `proxy/vless/encoding/encoding.go`.
+- Tests: `proxy/vless/encoding/response_header_perf_test.go`.
+- No inbound change is necessary.
+
+### Tests
+
+`response_header_perf_test.go` keeps the exact HEAD `EncodeResponseHeader` body as `encLegacyEncodeResponseHeader`, verified byte-identical to HEAD after import-alias normalization only.
+
+The file covers:
+
+1. Versions 0, 1, and 255 with empty, unknown, and Vision addons, compared byte-for-byte with the baseline.
+2. Nil request and nil addons on both paths, including panic text.
+3. Writer errors with zero and one reported byte, compared for wrapper text and cause.
+4. Short writes with a nil error on both paths.
+5. The actual `buf.BufferedWriter` fixture: header buffered, body written, one flush, header-then-body bytes.
+6. Heavy pool use and concurrent encodes on the shared bytes.
+
+### Measurements
+
+Method: same snapshot gate and settings as N2.
+
+| Subcase (median of 10 rounds) | HEAD ns/op | Current ns/op | HEAD B/op | Current B/op | HEAD allocs | Current allocs |
+| --- | --- | --- | --- | --- | --- | --- |
+| controlled writer | 18.72 | 3.12 | 0 | 0 | 0 | 0 |
+| actual `buf.BufferedWriter` | 116.70 | 83.12 | 48 | 48 | 1 | 1 |
+| fallback: Vision addons | 121.35 | 122.20 | 24 | 24 | 1 | 1 |
+| fallback: version 1 | 18.80 | 18.69 | 0 | 0 | 0 | 0 |
+
+Reading of the results:
+
+- The common header path drops the pooled-array acquisition: 18.72 to 3.12 ns controlled, an 83 percent improvement.
+- Through the real buffered writer the header-only median improves 116.70 to 83.12 ns, about 29 percent.
+  The remaining time is the writer's own buffer acquisition and flush path, which N3 does not remove.
+- Warm allocation counts do not increase: zero for the controlled writer, one for the buffered writer on both sides.
+- Both fallback subcases stay within one percent and keep their bytes and allocations.
+
+N3 acceptance:
+
+- No temporary managed-array acquisition on the common path: yes.
+- Warm allocation counts do not increase: yes.
+- Median header-only CPU improvement of at least 5 percent: yes, both fixtures.
+- Fallback within 3 percent: yes.
+- Shared-byte safety follows the audited writer contract: yes.
+
+## Measurement method and evidence
+
+Environment: Go 1.26.0, `GOTOOLCHAIN=local`, `GOFLAGS=-mod=readonly`, `GOPROXY=off`, `GOSUMDB=off`, `GOAMD64=v3`.
+Functional tests run with `CGO_ENABLED=0`.
+Race tests run with `CGO_ENABLED=1` and `CC=/usr/bin/gcc`.
+Benchmarks run with `GOMAXPROCS=1` and `taskset -c 2`.
+
+The prepared snapshot gate clones HEAD into disposable scratch.
+The gate copies the seven changed files and checks their hashes.
+The gate also checks that no file is staged.
+SHA-bound logs remain outside the repository.
+The measurement tables use saved benchmark run `1791410040657231851`.
+Its modes are `normal`, `race`, `offline`, `bench`, and `scope`.
+The `bench` mode runs ten paired rounds with `-benchmem -benchtime=100ms`.
+
+Never run `scripts/check.sh` or `scripts/build.sh` in the owner checkout.
+Those scripts overwrite `build/xray-trimmed`.
+The `offline` mode runs them only inside the disposable snapshot.
+
+The earlier local loop also ran `go test` and `go test -race` for `./common/buf`, `./common/net`, `./proxy`, `./proxy/freedom`, `./proxy/vless/encoding`, and `./proxy/vless/inbound`.
+
+The inherited `common/task.TestPeriodicTaskStop` race remains unresolved.
+The focused race suites pass.
+Do not claim full-repository race success.
+
+## Known limits and verification boundaries
+
+- The measurements are local loopback numbers on one machine.
+  They are not WAN speed and not live acceptance.
+- The saving per packet is small in absolute terms because the socket syscall dominates.
+  The same syscall leads the benchmark on both sides.
+- N2 does not make packet reads allocation-free.
+  The output `Destination` and the `Address` value box still allocate on both paths.
+  N2 removes only the temporary UDP source objects.
+- The isolated IPv4 conversion is slower than the baseline by about 1.4 ns.
+  The complete native receive is still faster on every measured size and family.
+- N2 adds one pointer field to `PacketReader` and about 8 ns plus 16 B/op to the one-time constructor per response reader.
+  This is reported separately and is not part of the per-packet result.
+- The native read path applies only when the dialer returns a `PacketConnWrapper` whose packet connection is a direct `*net.UDPConn`.
+  Packet masks and custom wrappers keep the generic path.
+- IPv6 zone identifiers from a real socket are not exercised on loopback.
+  The conversion ignores the zone like the baseline `net.IP` conversion, and the synthetic zone cases are covered.
+- Oversized datagrams truncate at 8192 bytes identically to the baseline on this platform.
+- N3 removes only the temporary array acquisition of the response header.
+  The buffered writer still owns its own buffer and flush path.
+- No client, handshake, schema, protobuf, or randomness behavior changes.
+
+## Final acceptance and release boundary
+
+A candidate can finish as rejected if measurements do not justify its complexity.
+The owner rejected N1 without a benchmark.
+N2 and N3 passed their local gates.
+
+Require independent review and current-state tests before accepting an implementation.
+Inspect the complete diff and all new test files.
+Keep candidate changes separate enough for targeted rollback.
+
+N2 and N3 are independent for rollback.
+N2 rollback restores the generic source read and conversion.
+N3 rollback restores the pooled encoder.
+N3 does not depend on any UDP change.
+
+Publish or deploy only after separate owner approval.
+For an approved deployment, preserve the current verified release and private configuration.
+Test fresh authenticated TCP and UDP connections, byte integrity, and both outbound address families.
+Check source metadata and packet boundaries after approved UDP deployment tests.
+
+Local tests do not establish ten-device capacity or every supported client platform.
+None of these candidates changes the existing client bypass policy.
+Do not present reduced local work as proven Internet throughput improvement.

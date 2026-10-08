@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	mathrand "math/rand"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -327,12 +328,16 @@ func NewPacketReader(conn net.Conn, UDPOverride net.Destination, DialDest net.De
 			isOverridden = true
 		}
 
+		// Select the concrete socket once. The wrapper itself stays untouched,
+		// so packet masks and custom connections keep the generic path.
+		nativeUDPConn, _ := c.PacketConn.(*net.UDPConn)
 		return &PacketReader{
 			PacketConnWrapper: c,
 			Counter:           counter,
 			IsOverridden:      isOverridden,
 			InitUnchangedAddr: DialDest.Address,
 			InitChangedAddr:   net.DestinationFromAddr(conn.RemoteAddr()).Address,
+			nativeUDPConn:     nativeUDPConn,
 		}
 	}
 	return &buf.PacketReader{Reader: conn}
@@ -344,12 +349,24 @@ type PacketReader struct {
 	IsOverridden      bool
 	InitUnchangedAddr net.Address
 	InitChangedAddr   net.Address
+
+	// nativeUDPConn is the concrete socket when the wrapper holds one. Packet
+	// masks and custom wrappers leave it nil and keep the generic read path.
+	nativeUDPConn *net.UDPConn
 }
 
 func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	b := buf.New()
 	b.Resize(0, buf.Size)
-	n, d, err := r.PacketConnWrapper.ReadFrom(b.Bytes())
+	var n int
+	var d net.Addr
+	var addrPort netip.AddrPort
+	var err error
+	if r.nativeUDPConn != nil {
+		n, addrPort, err = r.nativeUDPConn.ReadFromUDPAddrPort(b.Bytes())
+	} else {
+		n, d, err = r.PacketConnWrapper.ReadFrom(b.Bytes())
+	}
 	if err != nil {
 		b.Release()
 		return nil, err
@@ -358,13 +375,22 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	// if udp dest addr is changed, we are unable to get the correct src addr
 	// so we don't attach src info to udp packet, break cone behavior, assuming the dial dest is the expected scr addr
 	if !r.IsOverridden {
-		address := net.IPAddress(d.(*net.UDPAddr).IP)
+		var address net.Address
+		var port net.Port
+		if r.nativeUDPConn != nil {
+			address = net.IPAddressFromAddr(addrPort.Addr())
+			port = net.Port(addrPort.Port())
+		} else {
+			udpAddr := d.(*net.UDPAddr)
+			address = net.IPAddress(udpAddr.IP)
+			port = net.Port(udpAddr.Port)
+		}
 		if r.InitChangedAddr == address {
 			address = r.InitUnchangedAddr
 		}
 		b.UDP = &net.Destination{
 			Address: address,
-			Port:    net.Port(d.(*net.UDPAddr).Port),
+			Port:    port,
 			Network: net.Network_UDP,
 		}
 	}

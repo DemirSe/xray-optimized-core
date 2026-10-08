@@ -131,8 +131,22 @@ func DecodeRequestHeader(isfb bool, first *buf.Buffer, reader io.Reader, validat
 	}
 }
 
+// responseHeaderZeroAddons is the shared, read-only two-byte response header
+// for a version-zero request without Vision addons: the version byte and a
+// zero addon length. A conforming io.Writer must not modify or retain the
+// supplied slice. The server caller buf.BufferedWriter copies the bytes into
+// its own buffer.
+var responseHeaderZeroAddons = [2]byte{Version, 0}
+
 // EncodeResponseHeader writes encoded response header into the given writer.
 func EncodeResponseHeader(writer io.Writer, request *protocol.RequestHeader, responseAddons *Addons) error {
+	if request.Version == Version && responseAddons != nil && responseAddons.Flow != vless.XRV {
+		if _, err := writer.Write(responseHeaderZeroAddons[:]); err != nil {
+			return errors.New("failed to write response header").Base(err)
+		}
+		return nil
+	}
+
 	buffer := buf.StackNew()
 	defer buffer.Release()
 

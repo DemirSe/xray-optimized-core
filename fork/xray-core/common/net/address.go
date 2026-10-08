@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/xtls/xray-core/common/devlog"
@@ -120,6 +121,21 @@ func IPAddress(ip []byte) Address {
 		devlog.Log("net: IPAddress invalid length: ", len(ip))
 		return nil
 	}
+}
+
+// IPAddressFromAddr creates an Address with the given netip.Addr value. It
+// converts the value directly, without an intermediate net.IP or string. A
+// mapped IPv6 address normalizes to IPv4 like IPAddress, and an IPv6 zone is
+// ignored like the net.IP conversion. An invalid address returns nil.
+func IPAddressFromAddr(addr netip.Addr) Address {
+	if !addr.IsValid() {
+		return nil
+	}
+	addr = addr.Unmap()
+	if addr.Is4() {
+		return ipv4Address(addr.As4())
+	}
+	return ipv6Address(addr.As16())
 }
 
 // DomainAddress creates an Address with given domain.
